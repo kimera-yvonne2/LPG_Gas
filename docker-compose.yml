@@ -1,0 +1,88 @@
+name: ${COMPOSE_PROJECT_NAME:-lpg-guardian}
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-lpg_guardian}
+      POSTGRES_USER: ${POSTGRES_USER:-lpg_guardian}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-development-only}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lpg_guardian} -d ${POSTGRES_DB:-lpg_guardian}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7.4-alpine
+    command: redis-server --appendonly yes
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: ./apps/backend
+      target: development
+    command: ./scripts/entrypoint.sh python manage.py runserver 0.0.0.0:8000
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-lpg_guardian}:${POSTGRES_PASSWORD:-local-development-only}@postgres:5432/${POSTGRES_DB:-lpg_guardian}
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ./apps/backend:/app
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  worker:
+    build:
+      context: ./apps/backend
+      target: development
+    command: ./scripts/entrypoint.sh celery -A config worker --loglevel=info
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-lpg_guardian}:${POSTGRES_PASSWORD:-local-development-only}@postgres:5432/${POSTGRES_DB:-lpg_guardian}
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    volumes:
+      - ./apps/backend:/app
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+      target: development
+    command: npm --workspace @lpg-guardian/frontend run dev -- --hostname 0.0.0.0
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
+      WATCHPACK_POLLING: "true"
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    volumes:
+      - ./apps/frontend:/workspace/apps/frontend
+      - ./packages/shared:/workspace/packages/shared
+      - frontend_node_modules:/workspace/node_modules
+    depends_on:
+      backend: { condition: service_started }
+
+volumes:
+  postgres_data:
+  redis_data:
+  frontend_node_modules:
