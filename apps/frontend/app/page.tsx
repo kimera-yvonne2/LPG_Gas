@@ -1,13 +1,15 @@
-export default function Home() {
-  return (
-    <main className="mx-auto flex min-h-screen max-w-5xl items-center px-6">
-      <section>
-        <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-emerald-700">Platform foundation</p>
-        <h1 className="text-5xl font-bold tracking-tight">LPG Guardian</h1>
-        <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-600">
-          A secure, scalable foundation for connected cylinder monitoring. Product capabilities will be delivered through the project roadmap.
-        </p>
-      </section>
-    </main>
-  );
+"use client";
+
+import { AlertTriangle, CheckCircle2, ChevronRight, Phone, Wrench } from "lucide-react";
+import Link from "next/link";
+import { GasRing } from "@/components/gas-ring";
+import { PageHeading } from "@/components/ui-kit";
+
+export default function Dashboard() {
+  return <div className="mx-auto max-w-[1180px]"><PageHeading title="Welcome back, Johnathan Doe!" subtitle="System status. All systems normal." /><div className="grid gap-5 lg:grid-cols-[1.5fr_.7fr_.9fr]"><section className="card p-5"><div className="mb-4 text-[11px] font-extrabold uppercase tracking-wider text-slate-500">Current gas level</div><div className="flex min-h-[205px] flex-col items-center justify-center"><GasRing value={68} /><div className="mt-3 flex w-full items-center justify-between border-t border-slate-200 pt-4 text-[11px]"><span className="flex items-center gap-2 font-bold text-[#16863a]"><CheckCircle2 size={14} />Normal</span><Link href="/cylinders" className="font-bold text-[#073b82]">View details <ChevronRight className="inline" size={13} /></Link></div></div></section><section className="card flex flex-col p-5"><div className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">Estimated</div><div className="my-auto"><div className="text-[42px] font-black text-[#073b82]">18 <span className="text-[16px]">Days</span></div><div className="mt-1 text-[11px] font-semibold text-slate-500">Until refill</div></div><div className="border-t border-slate-200 pt-3 text-[11px] text-slate-600">Est. refill date: Oct 24</div></section><section><h2 className="section-title mb-3">Recent Alerts</h2><div className="card divide-y divide-slate-200"><AlertRow icon={<CheckCircle2 />} color="green" title="Daily Low Check" text="System operating within normal range." time="2h ago" /><AlertRow icon={<AlertTriangle />} color="orange" title="50%" text="Cylinder has reached half capacity." time="Yesterday" /><AlertRow icon={<Wrench />} color="blue" title="Refill" text="Next refill recommended in 18 days." time="Sep 14" /></div><Link href="/alerts" className="mt-3 block text-right text-[11px] font-bold text-[#073b82]">View all notifications</Link></section></div><section className="card mt-5 flex items-center gap-4 p-5"><div className="grid h-10 w-10 place-items-center rounded bg-[#edf3fb] text-[#073b82]"><Wrench size={20} /></div><div className="flex-1"><h2 className="section-title">Service Provider</h2><p className="text-[12px] text-slate-600">Chosen Gas Solutions · Scheduled inspection Nov 12</p></div><span className="badge badge-green">Active Supplier</span><button className="btn-primary"><Phone size={15} /> Contact</button></section></div>;
+}
+
+function AlertRow({ icon, color, title, text, time }: { icon: React.ReactNode; color: string; title: string; text: string; time: string }) {
+  const colors: Record<string, string> = { green: "text-green-700 bg-green-50", orange: "text-orange-700 bg-orange-50", blue: "text-blue-700 bg-blue-50" };
+  return <div className="flex gap-3 p-4"><span className={`grid h-8 w-8 place-items-center rounded-full ${colors[color]} [&>svg]:h-4 [&>svg]:w-4`}>{icon}</span><div className="min-w-0 flex-1"><div className="text-[12px] font-extrabold text-[#17314d]">{title}</div><div className="mt-1 text-[10px] leading-4 text-slate-600">{text}</div></div><span className="text-[9px] text-slate-500">{time}</span></div>;
 }

@@ -5,6 +5,6 @@ import Home from "./page";
 describe("Home", () => {
   it("identifies the platform", () => {
     render(<Home />);
-    expect(screen.getByRole("heading", { name: "LPG Guardian" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Welcome back/ })).toBeInTheDocument();
   });
 });
