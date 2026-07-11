@@ -1,0 +1,54 @@
+# --- Environment / secrets ---
+.env
+.env.*
+!.env.example
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# --- Virtual environments ---
+venv/
+env/
+ENV/
+.venv/
+
+# --- Django ---
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+/staticfiles/
+/media/
+
+# --- pip ---
+pip-log.txt
+pip-delete-this-directory.txt
+
+# --- Testing / coverage ---
+.pytest_cache/
+.coverage
+htmlcov/
+
+# --- Node / React (for when frontend joins the repo) ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+/build/
+/dist/
+
+# --- Editor / IDE ---
+.vscode/
+.idea/
+*.swp
+
+# --- OS junk ---
+.DS_Store
+Thumbs.db
+
+# --- Render ---
+build.sh.bak

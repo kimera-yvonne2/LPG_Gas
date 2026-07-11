@@ -1,0 +1,25 @@
+# --- Core ---
+django
+djangorestframework
+djangorestframework-simplejwt
+django-cors-headers
+django-filter
+psycopg2-binary
+python-decouple
+gunicorn
+whitenoise
+dj-database-url
+
+# --- Dev tooling ---
+pre-commit
+
+# --- Add these too, we might not use all of them but just in case ---
+celery
+redis
+django-celery-beat
+channels
+channels-redis
+daphne
+geopy
+drf-spectacular
+africastalking
