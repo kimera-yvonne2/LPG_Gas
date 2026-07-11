@@ -149,25 +149,16 @@ class SensorSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         if self.instance is None:
             candidate = Sensor(**attrs)
-            try:
-                candidate.full_clean()
-            except DjangoValidationError as exc:
-                raise serializers.ValidationError(exc.message_dict) from exc
-            return attrs
+            validate_model(candidate)
 
-        values = {
-            field: attrs.get(field, getattr(self.instance, field, None))
-            for field in (
-                "cylinder",
-                "esp32_id",
-                "firmware_version",
-                "mac_address",
-                "battery_level",
-                "online_status",
-                "last_seen",
-            )
-        }
         return attrs
+    def update(self, instance, validated_data):
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+
+        validate_model(instance)
+        instance.save()
+        return instance
 
     def create(self, validated_data):
         return create_sensor(**validated_data)
