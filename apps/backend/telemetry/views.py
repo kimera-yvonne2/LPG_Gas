@@ -30,4 +30,4 @@ class ReadingViewSet(
     ordering = ("-timestamp",)
 
     def get_queryset(self):
-        return reading_list_for(self.request.user)
+        return reading_list_for(self.request.user, self.request)
