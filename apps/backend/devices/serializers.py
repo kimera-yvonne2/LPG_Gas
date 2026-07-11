@@ -162,10 +162,3 @@ class SensorSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         return create_sensor(**validated_data)
-
-    def update(self, instance, validated_data):
-        for field, value in validated_data.items():
-            setattr(instance, field, value)
-        Sensor.objects.filter(pk=instance.pk).update(**validated_data)
-        instance.refresh_from_db()
-        return instance
