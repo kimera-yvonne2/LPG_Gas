@@ -56,4 +56,5 @@ jobs:
       - run: isort --check-only .
       - run: pytest
       - run: python manage.py makemigrations --check --dry-run
+      - run: python manage.py spectacular --api-version v1 --validate --file schema.yml
       - run: python manage.py check --deploy

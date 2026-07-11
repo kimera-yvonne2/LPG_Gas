@@ -37,6 +37,7 @@ python -m pip install -r apps/backend/requirements-dev.txt
 cd apps/backend
 ruff check . && black --check . && isort --check-only . && pytest
 python manage.py makemigrations --check --dry-run
+python manage.py spectacular --api-version v1 --validate --file schema.yml
 ```
 
 See [architecture](docs/architecture.md), [development guidelines](docs/development.md), [coding standards](docs/coding-standards.md), [API conventions](docs/api/README.md), [security](docs/security.md), and [Git workflow](docs/git-workflow.md).
