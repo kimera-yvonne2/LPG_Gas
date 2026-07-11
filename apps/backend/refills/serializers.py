@@ -1,6 +1,5 @@
 from rest_framework import serializers
 
-from devices.models import Cylinder, Household
 from refills.models import RefillRequest
 
 
