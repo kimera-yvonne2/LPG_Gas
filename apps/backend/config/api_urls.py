@@ -1,5 +1,10 @@
-from django.urls import path
+from django.urls import include, path
 
 from config.views import HealthView
 
-urlpatterns = [path("health/", HealthView.as_view(), name="health")]
+urlpatterns = [
+    path("health/", HealthView.as_view(), name="health"),
+    path("", include("accounts.urls")),
+    path("", include("devices.urls")),
+    path("", include("telemetry.urls")),
+]
