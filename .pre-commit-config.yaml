@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v5.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -12,31 +12,27 @@ repos:
       - id: detect-private-key
       - id: mixed-line-ending
         args: ["--fix=lf"]
-
   - repo: https://github.com/psf/black
-    rev: 24.8.0
+    rev: 25.1.0
     hooks:
       - id: black
         language_version: python3
-        files: ^backend/
-
+        files: ^apps/backend/
   - repo: https://github.com/PyCQA/isort
-    rev: 5.13.2
+    rev: 6.0.1
     hooks:
       - id: isort
         args: ["--profile", "black"]
-        files: ^backend/
-
-  - repo: https://github.com/PyCQA/flake8
-    rev: 7.1.1
+        files: ^apps/backend/
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.12.2
     hooks:
-      - id: flake8
-        args: ["--max-line-length=100", "--extend-ignore=E203"]
-        files: ^backend/
-
+      - id: ruff-check
+        args: ["--fix"]
+        files: ^apps/backend/
   - repo: https://github.com/adamchainz/django-upgrade
-    rev: 1.20.0
+    rev: 1.25.0
     hooks:
       - id: django-upgrade
-        args: ["--target-version", "5.0"]
-        files: ^backend/
+        args: ["--target-version", "5.2"]
+        files: ^apps/backend/

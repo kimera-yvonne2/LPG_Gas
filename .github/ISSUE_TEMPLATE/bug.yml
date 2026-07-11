@@ -1,0 +1,23 @@
+name: Bug report
+description: Report a reproducible defect
+title: "fix: "
+labels: ["type: bug", "status: triage"]
+body:
+  - type: textarea
+    id: description
+    attributes: { label: Description, description: Describe observed and expected behavior. }
+    validations: { required: true }
+  - type: textarea
+    id: reproduction
+    attributes: { label: Reproduction steps, description: Include the smallest reliable reproduction. }
+    validations: { required: true }
+  - type: textarea
+    id: acceptance
+    attributes: { label: Acceptance criteria, description: Define how the fix will be verified. }
+    validations: { required: true }
+  - type: textarea
+    id: technical
+    attributes: { label: Technical notes, description: Logs, versions, device firmware, and environment (redact secrets). }
+  - type: input
+    id: dependencies
+    attributes: { label: Dependencies, description: Link related or blocking issues. }

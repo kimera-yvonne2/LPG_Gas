@@ -35,6 +35,10 @@ htmlcov/
 
 # --- Node / React (for when frontend joins the repo) ---
 node_modules/
+.next/
+.turbo/
+*.tsbuildinfo
+coverage/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -52,3 +56,5 @@ Thumbs.db
 
 # --- Render ---
 build.sh.bak
+.ruff_cache/
+.mypy_cache/

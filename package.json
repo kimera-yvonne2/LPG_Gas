@@ -1,0 +1,14 @@
+{
+  "name": "lpg-guardian",
+  "private": true,
+  "packageManager": "npm@11.4.2",
+  "workspaces": ["apps/frontend", "packages/shared"],
+  "scripts": {
+    "dev": "npm --workspace @lpg-guardian/frontend run dev",
+    "lint": "npm --workspace @lpg-guardian/frontend run lint",
+    "typecheck": "npm --workspace @lpg-guardian/frontend run typecheck",
+    "test": "npm --workspace @lpg-guardian/frontend run test",
+    "build": "npm --workspace @lpg-guardian/frontend run build"
+  },
+  "engines": { "node": ">=22.0.0" }
+}
