@@ -152,6 +152,7 @@ class SensorSerializer(serializers.ModelSerializer):
             validate_model(candidate)
 
         return attrs
+
     def update(self, instance, validated_data):
         for field, value in validated_data.items():
             setattr(instance, field, value)
