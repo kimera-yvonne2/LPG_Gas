@@ -147,6 +147,14 @@ class SensorSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "created_at", "updated_at")
 
     def validate(self, attrs):
+        if self.instance is None:
+            candidate = Sensor(**attrs)
+            try:
+                candidate.full_clean()
+            except DjangoValidationError as exc:
+                raise serializers.ValidationError(exc.message_dict) from exc
+            return attrs
+
         values = {
             field: attrs.get(field, getattr(self.instance, field, None))
             for field in (
@@ -159,11 +167,14 @@ class SensorSerializer(serializers.ModelSerializer):
                 "last_seen",
             )
         }
-        candidate = Sensor(**values)
-        if self.instance:
-            candidate.pk = self.instance.pk
-        validate_model(candidate)
         return attrs
 
     def create(self, validated_data):
         return create_sensor(**validated_data)
+
+    def update(self, instance, validated_data):
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+        Sensor.objects.filter(pk=instance.pk).update(**validated_data)
+        instance.refresh_from_db()
+        return instance
