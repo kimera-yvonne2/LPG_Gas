@@ -56,7 +56,7 @@ def service_provider():
         email="provider-assets@example.com",
         username="provider-assets",
         password="Strong-Pass-123!",
-        role=User.Role.SERVICE_PROVIDER,
+        role=User.Role.TECHNICIAN,
         email_verified=True,
     )
 

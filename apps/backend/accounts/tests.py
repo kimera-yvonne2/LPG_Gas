@@ -10,8 +10,6 @@ from accounts.models import User
 from accounts.permissions import (
     IsAdminRole,
     IsHousehold,
-    IsServiceProvider,
-    IsServiceProviderOrTechnician,
     IsTechnician,
 )
 
@@ -236,10 +234,7 @@ def test_admin_can_create_technician_and_list_users(api_client, admin_user):
     [
         (IsAdminRole, User.Role.ADMIN),
         (IsHousehold, User.Role.HOUSEHOLD),
-        (IsServiceProvider, User.Role.SERVICE_PROVIDER),
         (IsTechnician, User.Role.TECHNICIAN),
-        (IsServiceProviderOrTechnician, User.Role.SERVICE_PROVIDER),
-        (IsServiceProviderOrTechnician, User.Role.TECHNICIAN),
     ],
 )
 def test_role_permissions_allow_only_configured_roles(permission_class, allowed_role):

@@ -12,6 +12,7 @@ type AuthContextValue = {
   login: (email: string, password: string) => Promise<User>;
   register: (input: { email: string; username: string; phone_number: string; password: string; password_confirm: string }) => Promise<void>;
   logout: () => Promise<void>;
+  updateProfile: (input: { username: string; phone_number: string }) => Promise<User>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -48,7 +49,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const refresh = localStorage.getItem("lpg_refresh_token");
     try { if (refresh) await api.post("/auth/logout/", { refresh }); } finally { clear(); }
   };
-  const value = { user, loading, login, register, logout };
+  const updateProfile = async (input: { username: string; phone_number: string }) => {
+    const { data } = await api.patch<User>("/users/me/", input); setUser(data); return data;
+  };
+  const value = { user, loading, login, register, logout, updateProfile };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

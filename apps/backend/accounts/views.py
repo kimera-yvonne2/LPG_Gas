@@ -228,6 +228,11 @@ class UserViewSet(
         return super().get_permissions()
 
     @extend_schema(tags=["Users"], summary="Get the authenticated user", responses=UserSerializer)
-    @action(detail=False, methods=["get"])
+    @action(detail=False, methods=["get", "patch"])
     def me(self, request):
+        if request.method == "PATCH":
+            serializer = UserSerializer(request.user, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data)
         return Response(UserSerializer(request.user).data)

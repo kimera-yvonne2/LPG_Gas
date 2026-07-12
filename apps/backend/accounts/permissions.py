@@ -23,14 +23,5 @@ class IsHousehold(HasRole):
     allowed_roles = (User.Role.HOUSEHOLD,)
 
 
-class IsServiceProvider(HasRole):
-    """Legacy name retained for imports; provider operations now belong to technicians."""
-    allowed_roles = (User.Role.TECHNICIAN,)
-
-
 class IsTechnician(HasRole):
-    allowed_roles = (User.Role.TECHNICIAN,)
-
-
-class IsServiceProviderOrTechnician(HasRole):
     allowed_roles = (User.Role.TECHNICIAN,)
