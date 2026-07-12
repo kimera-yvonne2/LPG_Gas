@@ -24,7 +24,8 @@ class IsHousehold(HasRole):
 
 
 class IsServiceProvider(HasRole):
-    allowed_roles = (User.Role.SERVICE_PROVIDER,)
+    """Legacy name retained for imports; provider operations now belong to technicians."""
+    allowed_roles = (User.Role.TECHNICIAN,)
 
 
 class IsTechnician(HasRole):
@@ -32,4 +33,4 @@ class IsTechnician(HasRole):
 
 
 class IsServiceProviderOrTechnician(HasRole):
-    allowed_roles = (User.Role.SERVICE_PROVIDER, User.Role.TECHNICIAN)
+    allowed_roles = (User.Role.TECHNICIAN,)

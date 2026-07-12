@@ -7,7 +7,7 @@ class HouseholdPermission(BasePermission):
     def has_permission(self, request, view):
         if not request.user.is_authenticated or not request.user.is_active:
             return False
-        if request.user.role in {User.Role.ADMIN, User.Role.SERVICE_PROVIDER}:
+        if request.user.role in {User.Role.ADMIN, User.Role.TECHNICIAN}:
             return True
         if request.user.role == User.Role.TECHNICIAN:
             return request.method in SAFE_METHODS
@@ -16,7 +16,7 @@ class HouseholdPermission(BasePermission):
         return False
 
     def has_object_permission(self, request, view, obj):
-        if request.user.role in {User.Role.ADMIN, User.Role.SERVICE_PROVIDER}:
+        if request.user.role in {User.Role.ADMIN, User.Role.TECHNICIAN}:
             return True
         if request.user.role == User.Role.TECHNICIAN:
             return request.method in SAFE_METHODS
@@ -32,11 +32,11 @@ class CylinderPermission(BasePermission):
         return request.user.role in {
             User.Role.ADMIN,
             User.Role.HOUSEHOLD,
-            User.Role.SERVICE_PROVIDER,
+            User.Role.TECHNICIAN,
         }
 
     def has_object_permission(self, request, view, obj):
-        if request.user.role in {User.Role.ADMIN, User.Role.SERVICE_PROVIDER}:
+        if request.user.role in {User.Role.ADMIN, User.Role.TECHNICIAN}:
             return True
         if request.user.role == User.Role.TECHNICIAN:
             return request.method in SAFE_METHODS
@@ -51,7 +51,7 @@ class SensorPermission(BasePermission):
             return request.method in SAFE_METHODS
         return request.user.role in {
             User.Role.ADMIN,
-            User.Role.SERVICE_PROVIDER,
+            User.Role.TECHNICIAN,
             User.Role.TECHNICIAN,
         }
 
@@ -63,6 +63,6 @@ class SensorPermission(BasePermission):
             )
         return request.user.role in {
             User.Role.ADMIN,
-            User.Role.SERVICE_PROVIDER,
+            User.Role.TECHNICIAN,
             User.Role.TECHNICIAN,
         }

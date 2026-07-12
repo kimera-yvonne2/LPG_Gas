@@ -11,7 +11,7 @@ class ReadingPermission(BasePermission):
             return request.method in SAFE_METHODS
         return request.user.role in {
             User.Role.ADMIN,
-            User.Role.SERVICE_PROVIDER,
+            User.Role.TECHNICIAN,
             User.Role.TECHNICIAN,
         }
 
@@ -23,6 +23,6 @@ class ReadingPermission(BasePermission):
             )
         return request.user.role in {
             User.Role.ADMIN,
-            User.Role.SERVICE_PROVIDER,
+            User.Role.TECHNICIAN,
             User.Role.TECHNICIAN,
         }

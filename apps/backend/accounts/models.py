@@ -36,7 +36,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     class Role(models.TextChoices):
         ADMIN = "admin", "Admin"
         HOUSEHOLD = "household", "Household"
-        SERVICE_PROVIDER = "service_provider", "Service Provider"
         TECHNICIAN = "technician", "Technician"
 
     email = models.EmailField(unique=True)
