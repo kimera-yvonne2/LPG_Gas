@@ -6,6 +6,7 @@ django-filter==25.1
 drf-spectacular==0.28.0
 psycopg[binary]==3.2.9
 dj-database-url==3.0.1
+python-dotenv==1.1.1
 celery[redis]==5.5.3
 gunicorn==23.0.0
 whitenoise==6.9.0
