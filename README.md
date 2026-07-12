@@ -20,6 +20,8 @@ docs                Architecture, API, security, and team practices
 
 ## Quick start
 
+The frontend and backend can be run independently as described below. To start the entire stack with Docker instead, use:
+
 ```bash
 cp .env.example .env
 docker compose up --build
@@ -28,6 +30,51 @@ docker compose up --build
 Then visit `http://localhost:3000`, `http://localhost:8000/api/docs/`, or `http://localhost:8000/api/v1/health/`.
 
 On Windows PowerShell, use `Copy-Item .env.example .env`. Development credentials in the example file are not suitable for shared or production environments.
+
+## Run the backend
+
+The backend loads configuration from `apps/backend/.env`. `DATABASE_URL` is parsed by Django and is used by all database and migration commands. Environment variables exported by your shell or hosting platform override values in the file.
+
+From the repository root on Windows PowerShell:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r apps/backend/requirements-dev.txt
+Copy-Item apps/backend/.env.example apps/backend/.env # skip if it already exists
+Set-Location apps/backend
+python manage.py migrate
+python manage.py runserver
+```
+
+On macOS or Linux, activate the environment with `source .venv/bin/activate` and copy the example with `cp apps/backend/.env.example apps/backend/.env` before changing into `apps/backend`.
+
+The API runs at `http://localhost:8000`; documentation is at `http://localhost:8000/api/docs/`. After changing Django models, create and apply migrations with:
+
+```bash
+cd apps/backend
+python manage.py makemigrations
+python manage.py migrate
+```
+
+## Run the frontend
+
+Use a second terminal from the repository root:
+
+```powershell
+npm ci
+Copy-Item apps/frontend/.env.example apps/frontend/.env.local # skip if it already exists
+npm run dev
+```
+
+On macOS or Linux, use `cp apps/frontend/.env.example apps/frontend/.env.local`. The frontend runs at `http://localhost:3000` and uses `NEXT_PUBLIC_API_URL` to reach the backend.
+
+For a production-style frontend build:
+
+```bash
+npm run build
+npm --workspace @lpg-guardian/frontend run start
+```
 
 ## Quality commands
 
