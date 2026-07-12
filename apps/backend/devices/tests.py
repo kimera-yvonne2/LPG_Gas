@@ -8,6 +8,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import User
 from devices.models import Cylinder, Household, Sensor
+from refills.models import RefillRequest
 
 pytestmark = pytest.mark.django_db
 
@@ -171,11 +172,26 @@ def test_household_cannot_access_another_households_cylinder(
     assert response.status_code == 404
 
 
-def test_cylinder_search_filter_and_pagination(api_client, cylinder, service_provider):
-    authenticate(api_client, service_provider)
+@pytest.mark.parametrize("role", [User.Role.SERVICE_PROVIDER, User.Role.TECHNICIAN])
+def test_operational_roles_only_see_cylinders_for_the_requested_refill_request_context(
+    api_client, cylinder, role
+):
+    user = User.objects.create_user(
+        email=f"{role}-context@example.com",
+        username=f"{role}-context",
+        password="Strong-Pass-123!",
+        role=role,
+        email_verified=True,
+    )
+    refill_request = RefillRequest.objects.create(
+        household=cylinder.household,
+        cylinder=cylinder,
+        source=RefillRequest.Source.MANUAL,
+    )
+    authenticate(api_client, user)
     response = api_client.get(
         reverse("v1:devices:cylinder-list"),
-        {"search": "CYL-0001", "status": Cylinder.Status.ACTIVE, "gas_percentage_min": 40},
+        {"refill_request": refill_request.id, "search": "CYL-0001"},
     )
     assert response.status_code == 200
     assert response.data["count"] == 1
@@ -186,6 +202,30 @@ def test_technician_cannot_create_cylinder(api_client, household, technician):
     authenticate(api_client, technician)
     response = api_client.post(reverse("v1:devices:cylinder-list"), {}, format="json")
     assert response.status_code == 403
+
+
+def test_inactive_or_unverified_users_cannot_access_devices(api_client, household):
+    inactive_user = User.objects.create_user(
+        email="inactive@example.com",
+        username="inactive",
+        password="Strong-Pass-123!",
+        role=User.Role.HOUSEHOLD,
+        email_verified=True,
+        is_active=False,
+    )
+    unverified_user = User.objects.create_user(
+        email="unverified@example.com",
+        username="unverified",
+        password="Strong-Pass-123!",
+        role=User.Role.HOUSEHOLD,
+        email_verified=False,
+    )
+
+    authenticate(api_client, inactive_user)
+    assert api_client.get(reverse("v1:devices:household-list")).status_code == 403
+
+    authenticate(api_client, unverified_user)
+    assert api_client.get(reverse("v1:devices:household-list")).status_code == 403
 
 
 def test_technician_can_register_sensor_and_mac_is_normalized(api_client, cylinder, technician):
@@ -207,17 +247,34 @@ def test_technician_can_register_sensor_and_mac_is_normalized(api_client, cylind
     assert response.data["mac_address"] == "AA:BB:CC:DD:EE:FF"
 
 
-def test_household_can_read_but_not_create_sensor(api_client, cylinder):
-    Sensor.objects.create(
-        cylinder=cylinder,
-        esp32_id="ESP32-READ",
-        firmware_version="1.0.0",
-        mac_address="AA:BB:CC:DD:EE:01",
-        battery_level=Decimal("90.00"),
-    )
+def test_household_can_create_update_and_delete_sensor_for_own_cylinder(api_client, cylinder):
     authenticate(api_client, cylinder.household.owner)
-    assert api_client.get(reverse("v1:devices:sensor-list")).data["count"] == 1
-    assert api_client.post(reverse("v1:devices:sensor-list"), {}).status_code == 403
+
+    create_response = api_client.post(
+        reverse("v1:devices:sensor-list"),
+        {
+            "cylinder": cylinder.id,
+            "esp32_id": "ESP32-READ",
+            "firmware_version": "1.0.0",
+            "mac_address": "AA:BB:CC:DD:EE:01",
+            "battery_level": "90.00",
+            "online_status": True,
+            "last_seen": (timezone.now() - timedelta(minutes=1)).isoformat(),
+        },
+        format="json",
+    )
+    assert create_response.status_code == 201
+
+    sensor = Sensor.objects.get(esp32_id="ESP32-READ")
+    update_response = api_client.patch(
+        reverse("v1:devices:sensor-detail", args=[sensor.id]),
+        {"firmware_version": "2.0.0"},
+        format="json",
+    )
+    assert update_response.status_code == 200
+
+    delete_response = api_client.delete(reverse("v1:devices:sensor-detail", args=[sensor.id]))
+    assert delete_response.status_code == 204
 
 
 def test_protected_cylinder_delete_returns_validation_error(api_client, cylinder, service_provider):

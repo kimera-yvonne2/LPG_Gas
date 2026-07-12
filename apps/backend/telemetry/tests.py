@@ -8,6 +8,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import User
 from devices.models import Cylinder, Household, Sensor
+from refills.models import RefillRequest
 from telemetry.models import Reading
 
 pytestmark = pytest.mark.django_db
@@ -111,6 +112,32 @@ def test_household_reads_only_owned_readings(api_client, asset_graph):
     )
     api_client.force_authenticate(owner)
     response = api_client.get(reverse("v1:telemetry:reading-list"))
+    assert response.status_code == 200
+    assert response.data["count"] == 1
+    assert response.data["results"][0]["esp32_id"] == sensor.esp32_id
+
+
+def test_operational_roles_only_see_readings_for_the_requested_refill_request_context(
+    api_client, asset_graph
+):
+    owner, _, sensor = asset_graph
+    Reading.objects.create(
+        sensor=sensor,
+        timestamp=timezone.now() - timedelta(minutes=2),
+        weight=Decimal("8.500"),
+        temperature=Decimal("25.50"),
+        signal_strength=-58,
+    )
+    refill_request = RefillRequest.objects.create(
+        household=owner.household,
+        cylinder=sensor.cylinder,
+        source=RefillRequest.Source.MANUAL,
+    )
+    user = make_user("reading-context@example.com", User.Role.SERVICE_PROVIDER)
+    api_client.force_authenticate(user)
+    response = api_client.get(
+        reverse("v1:telemetry:reading-list"), {"refill_request": refill_request.id}
+    )
     assert response.status_code == 200
     assert response.data["count"] == 1
     assert response.data["results"][0]["esp32_id"] == sensor.esp32_id
