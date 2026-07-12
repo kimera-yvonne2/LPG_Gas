@@ -23,13 +23,5 @@ class IsHousehold(HasRole):
     allowed_roles = (User.Role.HOUSEHOLD,)
 
 
-class IsServiceProvider(HasRole):
-    allowed_roles = (User.Role.SERVICE_PROVIDER,)
-
-
 class IsTechnician(HasRole):
     allowed_roles = (User.Role.TECHNICIAN,)
-
-
-class IsServiceProviderOrTechnician(HasRole):
-    allowed_roles = (User.Role.SERVICE_PROVIDER, User.Role.TECHNICIAN)

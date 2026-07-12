@@ -13,7 +13,7 @@ def reading_list_for(user: User, request: Any | None = None) -> QuerySet[Reading
     )
     if user.role == User.Role.HOUSEHOLD:
         queryset = queryset.filter(sensor__cylinder__household__owner=user)
-    elif user.role in {User.Role.SERVICE_PROVIDER, User.Role.TECHNICIAN}:
+    elif user.role == User.Role.TECHNICIAN:
         refill_request_id = None
         if request is not None:
             refill_request_id = request.query_params.get("refill_request")
