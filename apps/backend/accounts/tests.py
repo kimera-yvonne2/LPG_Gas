@@ -54,7 +54,7 @@ def login(api_client, user):
     return response.data
 
 
-def test_registration_creates_unverified_household_and_sends_email(api_client, mailoutbox):
+def test_registration_creates_active_household_without_verification_email(api_client, mailoutbox):
     response = api_client.post(
         reverse("v1:accounts:register"),
         {
@@ -70,10 +70,9 @@ def test_registration_creates_unverified_household_and_sends_email(api_client, m
     assert response.status_code == 201
     user = User.objects.get(email="new@example.com")
     assert user.role == User.Role.HOUSEHOLD
-    assert not user.email_verified
+    assert user.email_verified
     assert user.check_password("Stronger-Pass-123!")
-    assert len(mailoutbox) == 1
-    assert str(user.email_verification_token) in mailoutbox[0].body
+    assert len(mailoutbox) == 0
 
 
 def test_registration_ignores_privileged_role_and_rejects_duplicate_email(
@@ -105,7 +104,7 @@ def test_registration_ignores_privileged_role_and_rejects_duplicate_email(
     assert "email" in response.data["detail"]
 
 
-def test_unverified_user_cannot_login(api_client):
+def test_legacy_unverified_user_can_login(api_client):
     user = User.objects.create_user(
         email="unverified@example.com",
         username="unverified",
@@ -116,7 +115,7 @@ def test_unverified_user_cannot_login(api_client):
         {"email": user.email, "password": "Stronger-Pass-123!"},
         format="json",
     )
-    assert response.status_code == 400
+    assert response.status_code == 200
 
 
 def test_login_returns_role_claim_and_refresh_rotates(api_client, household):
