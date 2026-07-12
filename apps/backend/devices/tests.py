@@ -204,9 +204,7 @@ def test_technician_cannot_create_cylinder(api_client, household, technician):
     assert response.status_code == 403
 
 
-def test_inactive_users_are_blocked_but_legacy_unverified_users_are_allowed(
-    api_client, household
-):
+def test_inactive_users_are_blocked_but_legacy_unverified_users_are_allowed(api_client, household):
     inactive_user = User.objects.create_user(
         email="inactive@example.com",
         username="inactive",
