@@ -147,23 +147,19 @@ class SensorSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "created_at", "updated_at")
 
     def validate(self, attrs):
-        values = {
-            field: attrs.get(field, getattr(self.instance, field, None))
-            for field in (
-                "cylinder",
-                "esp32_id",
-                "firmware_version",
-                "mac_address",
-                "battery_level",
-                "online_status",
-                "last_seen",
-            )
-        }
-        candidate = Sensor(**values)
-        if self.instance:
-            candidate.pk = self.instance.pk
-        validate_model(candidate)
+        if self.instance is None:
+            candidate = Sensor(**attrs)
+            validate_model(candidate)
+
         return attrs
+
+    def update(self, instance, validated_data):
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+
+        validate_model(instance)
+        instance.save()
+        return instance
 
     def create(self, validated_data):
         return create_sensor(**validated_data)

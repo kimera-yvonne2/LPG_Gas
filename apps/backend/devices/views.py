@@ -40,7 +40,7 @@ class HouseholdViewSet(AssetViewSet):
     ordering = ("name",)
 
     def get_queryset(self):
-        return household_list_for(self.request.user)
+        return household_list_for(self.request.user, self.request)
 
 
 @extend_schema_view(
@@ -61,7 +61,7 @@ class CylinderViewSet(AssetViewSet):
     ordering = ("serial_number",)
 
     def get_queryset(self):
-        return cylinder_list_for(self.request.user)
+        return cylinder_list_for(self.request.user, self.request)
 
 
 @extend_schema_view(
@@ -82,4 +82,4 @@ class SensorViewSet(AssetViewSet):
     ordering = ("esp32_id",)
 
     def get_queryset(self):
-        return sensor_list_for(self.request.user)
+        return sensor_list_for(self.request.user, self.request)

@@ -3,66 +3,71 @@ from rest_framework.permissions import SAFE_METHODS, BasePermission
 from accounts.models import User
 
 
+def is_valid_user(user):
+    return bool(user and user.is_authenticated and user.is_active and user.email_verified)
+
+
 class HouseholdPermission(BasePermission):
     def has_permission(self, request, view):
-        if not request.user.is_authenticated or not request.user.is_active:
+        if not is_valid_user(request.user):
             return False
-        if request.user.role in {User.Role.ADMIN, User.Role.TECHNICIAN}:
+
+        if request.user.role == User.Role.ADMIN:
             return True
-        if request.user.role == User.Role.TECHNICIAN:
+        if request.user.role in {User.Role.TECHNICIAN, User.Role.SERVICE_PROVIDER}:
             return request.method in SAFE_METHODS
         if request.user.role == User.Role.HOUSEHOLD:
-            return view.action != "create" or not hasattr(request.user, "household")
+            return request.method in SAFE_METHODS or not hasattr(request.user, "household")
         return False
 
     def has_object_permission(self, request, view, obj):
-        if request.user.role in {User.Role.ADMIN, User.Role.TECHNICIAN}:
+        if request.user.role == User.Role.ADMIN:
             return True
-        if request.user.role == User.Role.TECHNICIAN:
-            return request.method in SAFE_METHODS
-        return obj.owner_id == request.user.id
+        if request.user.role in {User.Role.TECHNICIAN, User.Role.SERVICE_PROVIDER}:
+            return request.method in SAFE_METHODS or request.method == "DELETE"
+        if request.user.role == User.Role.HOUSEHOLD:
+            return obj.owner_id == request.user.id
+        return False
 
 
 class CylinderPermission(BasePermission):
     def has_permission(self, request, view):
-        if not request.user.is_authenticated or not request.user.is_active:
+        if not is_valid_user(request.user):
             return False
-        if request.user.role == User.Role.TECHNICIAN:
-            return request.method in SAFE_METHODS
+        if request.user.role in {User.Role.TECHNICIAN, User.Role.SERVICE_PROVIDER}:
+            return request.method in SAFE_METHODS or request.method == "DELETE"
         return request.user.role in {
             User.Role.ADMIN,
             User.Role.HOUSEHOLD,
-            User.Role.TECHNICIAN,
         }
 
     def has_object_permission(self, request, view, obj):
-        if request.user.role in {User.Role.ADMIN, User.Role.TECHNICIAN}:
+        if request.user.role == User.Role.ADMIN:
             return True
-        if request.user.role == User.Role.TECHNICIAN:
-            return request.method in SAFE_METHODS
-        return obj.household.owner_id == request.user.id
+        if request.user.role in {User.Role.TECHNICIAN, User.Role.SERVICE_PROVIDER}:
+            return request.method in SAFE_METHODS or request.method == "DELETE"
+        if request.user.role == User.Role.HOUSEHOLD:
+            return obj.household.owner_id == request.user.id
+        return False
 
 
 class SensorPermission(BasePermission):
     def has_permission(self, request, view):
-        if not request.user.is_authenticated or not request.user.is_active:
+        if not is_valid_user(request.user):
             return False
+        if request.user.role == User.Role.ADMIN:
+            return True
         if request.user.role == User.Role.HOUSEHOLD:
-            return request.method in SAFE_METHODS
-        return request.user.role in {
-            User.Role.ADMIN,
-            User.Role.TECHNICIAN,
-            User.Role.TECHNICIAN,
-        }
+            return True
+        if request.user.role in {User.Role.TECHNICIAN, User.Role.SERVICE_PROVIDER}:
+            return True
+        return False
 
     def has_object_permission(self, request, view, obj):
+        if request.user.role == User.Role.ADMIN:
+            return True
         if request.user.role == User.Role.HOUSEHOLD:
-            return (
-                request.method in SAFE_METHODS
-                and obj.cylinder.household.owner_id == request.user.id
-            )
-        return request.user.role in {
-            User.Role.ADMIN,
-            User.Role.TECHNICIAN,
-            User.Role.TECHNICIAN,
-        }
+            return obj.cylinder.household.owner_id == request.user.id
+        if request.user.role in {User.Role.TECHNICIAN, User.Role.SERVICE_PROVIDER}:
+            return request.method in SAFE_METHODS or request.method == "DELETE"
+        return False
