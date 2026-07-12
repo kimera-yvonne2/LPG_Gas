@@ -133,7 +133,7 @@ def test_operational_roles_only_see_readings_for_the_requested_refill_request_co
         cylinder=sensor.cylinder,
         source=RefillRequest.Source.MANUAL,
     )
-    user = make_user("reading-context@example.com", User.Role.SERVICE_PROVIDER)
+    user = make_user("reading-context@example.com", User.Role.TECHNICIAN)
     api_client.force_authenticate(user)
     response = api_client.get(
         reverse("v1:telemetry:reading-list"), {"refill_request": refill_request.id}

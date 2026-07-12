@@ -23,6 +23,7 @@ class UserManager(BaseUserManager):
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
         extra_fields.setdefault("role", User.Role.ADMIN)
+        extra_fields.setdefault("email_verified", True)
 
         if extra_fields.get("is_staff") is not True:
             raise ValueError("Superuser must have is_staff=True")
@@ -36,7 +37,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     class Role(models.TextChoices):
         ADMIN = "admin", "Admin"
         HOUSEHOLD = "household", "Household"
-        SERVICE_PROVIDER = "service_provider", "Service Provider"
         TECHNICIAN = "technician", "Technician"
 
     email = models.EmailField(unique=True)

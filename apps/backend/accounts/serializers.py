@@ -39,6 +39,8 @@ class AdminUserWriteSerializer(UserSerializer):
         password = validated_data.pop("password", None)
         if not password:
             raise serializers.ValidationError({"password": "This field is required."})
+        # Accounts provisioned by an authenticated administrator can sign in immediately.
+        validated_data["email_verified"] = True
         return User.objects.create_user(password=password, **validated_data)
 
     def update(self, instance, validated_data):
@@ -88,8 +90,6 @@ class LoginSerializer(TokenObtainPairSerializer):
 
     def validate(self, attrs):
         data = super().validate(attrs)
-        if not self.user.email_verified:
-            raise serializers.ValidationError({"email": "Email address is not verified."})
         data["user"] = UserSerializer(self.user).data
         return data
 

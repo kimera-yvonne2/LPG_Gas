@@ -33,8 +33,8 @@ def register_household(*, email: str, username: str, password: str, phone_number
         password=password,
         phone_number=phone_number,
         role=User.Role.HOUSEHOLD,
+        email_verified=True,
     )
-    send_verification_email(user)
     return user
 
 

@@ -25,7 +25,7 @@ def household_list_for(user: User, request: Any | None = None) -> QuerySet[House
     queryset = Household.objects.select_related("owner")
     if user.role == User.Role.HOUSEHOLD:
         queryset = queryset.filter(owner=user)
-    elif user.role in {User.Role.SERVICE_PROVIDER, User.Role.TECHNICIAN}:
+    elif user.role == User.Role.TECHNICIAN:
         refill_request = _refill_request_from_request(request)
         if refill_request is not None:
             queryset = queryset.filter(pk=refill_request.household_id)
@@ -36,7 +36,7 @@ def cylinder_list_for(user: User, request: Any | None = None) -> QuerySet[Cylind
     queryset = Cylinder.objects.select_related("household", "household__owner")
     if user.role == User.Role.HOUSEHOLD:
         queryset = queryset.filter(household__owner=user)
-    elif user.role in {User.Role.SERVICE_PROVIDER, User.Role.TECHNICIAN}:
+    elif user.role == User.Role.TECHNICIAN:
         refill_request = _refill_request_from_request(request)
         if refill_request is not None:
             queryset = queryset.filter(pk=refill_request.cylinder_id)
@@ -49,7 +49,7 @@ def sensor_list_for(user: User, request: Any | None = None) -> QuerySet[Sensor]:
     )
     if user.role == User.Role.HOUSEHOLD:
         queryset = queryset.filter(cylinder__household__owner=user)
-    elif user.role in {User.Role.SERVICE_PROVIDER, User.Role.TECHNICIAN}:
+    elif user.role == User.Role.TECHNICIAN:
         refill_request = _refill_request_from_request(request)
         if refill_request is not None:
             queryset = queryset.filter(cylinder_id=refill_request.cylinder_id)

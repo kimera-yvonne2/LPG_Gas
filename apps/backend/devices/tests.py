@@ -57,7 +57,7 @@ def service_provider():
         email="provider-assets@example.com",
         username="provider-assets",
         password="Strong-Pass-123!",
-        role=User.Role.SERVICE_PROVIDER,
+        role=User.Role.TECHNICIAN,
         email_verified=True,
     )
 
@@ -172,10 +172,10 @@ def test_household_cannot_access_another_households_cylinder(
     assert response.status_code == 404
 
 
-@pytest.mark.parametrize("role", [User.Role.SERVICE_PROVIDER, User.Role.TECHNICIAN])
-def test_operational_roles_only_see_cylinders_for_the_requested_refill_request_context(
-    api_client, cylinder, role
+def test_technician_only_sees_cylinders_for_the_requested_refill_request_context(
+    api_client, cylinder
 ):
+    role = User.Role.TECHNICIAN
     user = User.objects.create_user(
         email=f"{role}-context@example.com",
         username=f"{role}-context",
@@ -204,7 +204,7 @@ def test_technician_cannot_create_cylinder(api_client, household, technician):
     assert response.status_code == 403
 
 
-def test_inactive_or_unverified_users_cannot_access_devices(api_client, household):
+def test_inactive_users_are_blocked_but_legacy_unverified_users_are_allowed(api_client, household):
     inactive_user = User.objects.create_user(
         email="inactive@example.com",
         username="inactive",
@@ -225,7 +225,7 @@ def test_inactive_or_unverified_users_cannot_access_devices(api_client, househol
     assert api_client.get(reverse("v1:devices:household-list")).status_code == 403
 
     authenticate(api_client, unverified_user)
-    assert api_client.get(reverse("v1:devices:household-list")).status_code == 403
+    assert api_client.get(reverse("v1:devices:household-list")).status_code == 200
 
 
 def test_technician_can_register_sensor_and_mac_is_normalized(api_client, cylinder, technician):
