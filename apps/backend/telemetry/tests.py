@@ -329,3 +329,36 @@ def test_generate_depletion_estimate_returns_stale_data(asset_graph):
     assert estimate.upper_bound_at is None
     assert estimate.input_reading_count == 5
     assert "more than 24 hours old" in estimate.failure_reason
+
+
+def test_generate_depletion_estimate_uses_readings_after_latest_refill(asset_graph):
+    _, cylinder, sensor = asset_graph
+    now = timezone.now()
+
+    readings = [
+        (now - timedelta(days=6), Decimal("8.000")),
+        (now - timedelta(days=5), Decimal("7.500")),
+        # Weight rises sharply here, so this should be treated as a refill.
+        (now - timedelta(days=4), Decimal("10.000")),
+        (now - timedelta(days=3), Decimal("9.200")),
+        (now - timedelta(days=2), Decimal("8.400")),
+        (now - timedelta(days=1), Decimal("7.600")),
+        (now - timedelta(hours=1), Decimal("6.800")),
+    ]
+
+    for timestamp, weight in readings:
+        Reading.objects.create(
+            sensor=sensor,
+            cylinder=cylinder,
+            timestamp=timestamp,
+            weight=weight,
+            temperature=Decimal("25.00"),
+            signal_strength=-60,
+        )
+
+    estimate = generate_depletion_estimate(cylinder)
+
+    assert estimate.status == DepletionEstimate.Status.AVAILABLE
+    assert estimate.input_reading_count == 5
+    assert estimate.input_started_at == readings[2][0]
+    assert estimate.input_ended_at == readings[-1][0]
