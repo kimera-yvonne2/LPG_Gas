@@ -362,3 +362,33 @@ def test_generate_depletion_estimate_uses_readings_after_latest_refill(asset_gra
     assert estimate.input_reading_count == 5
     assert estimate.input_started_at == readings[2][0]
     assert estimate.input_ended_at == readings[-1][0]
+
+
+def test_household_can_view_own_depletion_estimate(api_client, asset_graph):
+    owner, cylinder, _ = asset_graph
+
+    estimate = DepletionEstimate.objects.create(
+        cylinder=cylinder,
+        status=DepletionEstimate.Status.AVAILABLE,
+        estimated_depletion_at=timezone.now() + timedelta(days=5),
+        lower_bound_at=timezone.now() + timedelta(days=4),
+        upper_bound_at=timezone.now() + timedelta(days=7),
+        estimated_days_remaining=Decimal("5.00"),
+        confidence_score=Decimal("0.80"),
+        model_name="weighted-average-depletion",
+        model_version="1.0.0",
+        input_reading_count=5,
+        input_started_at=timezone.now() - timedelta(days=4),
+        input_ended_at=timezone.now() - timedelta(hours=1),
+    )
+
+    api_client.force_authenticate(owner)
+
+    response = api_client.get(reverse("v1:telemetry:depletion-estimate-list"))
+
+    assert response.status_code == 200
+    assert response.data["count"] == 1
+    assert response.data["results"][0]["id"] == estimate.id
+    assert response.data["results"][0]["cylinder"] == cylinder.id
+    assert response.data["results"][0]["model_version"] == "1.0.0"
+    assert "safety guarantee" in response.data["results"][0]["disclaimer"]
