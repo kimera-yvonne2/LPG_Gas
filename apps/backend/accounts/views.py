@@ -1,20 +1,11 @@
-from accounts.permissions import IsAdminRole
-from accounts.selectors import user_list
-from accounts.serializers import (AdminUserWriteSerializer,
-                                  EmailVerificationSerializer, LoginSerializer,
-                                  LogoutSerializer,
-                                  PasswordResetConfirmSerializer,
-                                  PasswordResetRequestSerializer,
-                                  RegistrationSerializer,
-                                  ResendVerificationSerializer, UserSerializer)
-from accounts.services import (can_resend_verification,
-                               delete_household_account,
-                               send_password_reset_email,
-                               send_verification_email, verify_email)
 from django.contrib.auth import get_user_model
 from django.db.models import Q
-from drf_spectacular.utils import (OpenApiExample, OpenApiParameter,
-                                   extend_schema, extend_schema_view)
+from drf_spectacular.utils import (
+    OpenApiExample,
+    OpenApiParameter,
+    extend_schema,
+    extend_schema_view,
+)
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -22,8 +13,28 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.views import (TokenObtainPairView,
-                                            TokenRefreshView)
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+
+from accounts.permissions import IsAdminRole
+from accounts.selectors import user_list
+from accounts.serializers import (
+    AdminUserWriteSerializer,
+    EmailVerificationSerializer,
+    LoginSerializer,
+    LogoutSerializer,
+    PasswordResetConfirmSerializer,
+    PasswordResetRequestSerializer,
+    RegistrationSerializer,
+    ResendVerificationSerializer,
+    UserSerializer,
+)
+from accounts.services import (
+    can_resend_verification,
+    delete_household_account,
+    send_password_reset_email,
+    send_verification_email,
+    verify_email,
+)
 
 User = get_user_model()
 

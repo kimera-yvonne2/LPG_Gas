@@ -1,6 +1,7 @@
 from django.urls import path
-from refills.views import RefillProviderListView, RefillRequestViewSet
 from rest_framework.routers import DefaultRouter
+
+from refills.views import RefillProviderListView, RefillRequestViewSet
 
 app_name = "refills"
 

@@ -1,12 +1,13 @@
 from decimal import Decimal
 
 import pytest
-from accounts.models import User
-from devices.models import Cylinder, Household
 from django.urls import reverse
 from django.utils import timezone
-from refills.models import RefillRequest
 from rest_framework.test import APIClient
+
+from accounts.models import User
+from devices.models import Cylinder, Household
+from refills.models import RefillRequest
 
 pytestmark = pytest.mark.django_db
 

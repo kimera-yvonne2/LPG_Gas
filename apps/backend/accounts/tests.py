@@ -1,13 +1,14 @@
 import pytest
-from accounts.models import User
-from accounts.permissions import IsAdminRole, IsHousehold, IsTechnician
-from devices.models import Household
 from django.contrib.auth.tokens import default_token_generator
 from django.urls import reverse
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import AccessToken
+
+from accounts.models import User
+from accounts.permissions import IsAdminRole, IsHousehold, IsTechnician
+from devices.models import Household
 
 pytestmark = pytest.mark.django_db
 

@@ -1,10 +1,11 @@
 from decimal import Decimal
 
-from devices.models import Cylinder, Sensor
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
+
+from devices.models import Cylinder, Sensor
 
 
 class Reading(models.Model):

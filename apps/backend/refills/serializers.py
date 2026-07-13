@@ -1,6 +1,7 @@
+from rest_framework import serializers
+
 from accounts.models import User
 from refills.models import RefillRequest
-from rest_framework import serializers
 
 
 class RefillProviderSerializer(serializers.ModelSerializer):

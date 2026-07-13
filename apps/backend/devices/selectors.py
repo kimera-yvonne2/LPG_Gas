@@ -1,8 +1,9 @@
 from typing import Any
 
+from django.db.models import QuerySet
+
 from accounts.models import User
 from devices.models import Cylinder, Household, Sensor
-from django.db.models import QuerySet
 from refills.models import RefillRequest
 
 

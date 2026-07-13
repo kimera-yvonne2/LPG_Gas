@@ -1,4 +1,5 @@
 import django_filters
+
 from devices.models import Cylinder, Household, Sensor
 
 

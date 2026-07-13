@@ -1,5 +1,6 @@
-from accounts.models import User
 from rest_framework.permissions import BasePermission
+
+from accounts.models import User
 
 
 class HasRole(BasePermission):

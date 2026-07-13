@@ -1,9 +1,9 @@
-from accounts.models import User
-from devices.models import Cylinder, Household, Sensor
-from devices.services import (create_cylinder, create_household, create_sensor,
-                              update_cylinder)
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
+
+from accounts.models import User
+from devices.models import Cylinder, Household, Sensor
+from devices.services import create_cylinder, create_household, create_sensor, update_cylinder
 
 
 def validate_model(instance):

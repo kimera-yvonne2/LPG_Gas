@@ -1,7 +1,8 @@
 from typing import Any
 
-from accounts.models import User
 from django.db.models import QuerySet
+
+from accounts.models import User
 from refills.models import RefillRequest
 from telemetry.models import Reading
 

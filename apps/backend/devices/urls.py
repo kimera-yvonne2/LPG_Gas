@@ -1,5 +1,6 @@
-from devices.views import CylinderViewSet, HouseholdViewSet, SensorViewSet
 from rest_framework.routers import DefaultRouter
+
+from devices.views import CylinderViewSet, HouseholdViewSet, SensorViewSet
 
 app_name = "devices"
 

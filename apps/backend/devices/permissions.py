@@ -1,5 +1,6 @@
-from accounts.models import User
 from rest_framework.permissions import SAFE_METHODS, BasePermission
+
+from accounts.models import User
 
 
 def is_valid_user(user):

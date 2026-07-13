@@ -1,5 +1,6 @@
-from devices.models import Cylinder, Household, Sensor
 from django.contrib import admin
+
+from devices.models import Cylinder, Household, Sensor
 
 
 @admin.register(Household)
