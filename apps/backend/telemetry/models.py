@@ -85,3 +85,67 @@ class Reading(models.Model):
         gas_weight = max(self.weight - cylinder.empty_weight, Decimal("0"))
         percentage = (gas_weight / cylinder.capacity) * Decimal("100")
         return min(percentage, Decimal("100")).quantize(Decimal("0.01"))
+    
+
+class DepletionEstimate(models.Model):
+    class Status(models.TextChoices):
+        AVAILABLE = "available", "Available"
+        INSUFFICIENT_DATA = "insufficient_data", "Insufficient data"
+        STALE_DATA = "stale_data", "Stale data"
+        FAILED = "failed", "Failed"
+
+    cylinder = models.ForeignKey(
+        "devices.Cylinder",
+        on_delete=models.CASCADE,
+        related_name="depletion_estimates",
+    )
+    status = models.CharField(
+        max_length=30,
+        choices=Status.choices,
+    )
+    estimated_depletion_at = models.DateTimeField(blank=True, null=True)
+    lower_bound_at = models.DateTimeField(blank=True, null=True)
+    upper_bound_at = models.DateTimeField(blank=True, null=True)
+    estimated_days_remaining = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        blank=True,
+        null=True,
+    )
+    confidence_score = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        validators=[
+            MinValueValidator(Decimal("0")),
+            MaxValueValidator(Decimal("1")),
+        ],
+    )
+    model_name = models.CharField(max_length=100)
+    model_version = models.CharField(max_length=50)
+    input_reading_count = models.PositiveIntegerField(default=0)
+    input_started_at = models.DateTimeField(blank=True, null=True)
+    input_ended_at = models.DateTimeField(blank=True, null=True)
+    failure_reason = models.TextField(blank=True)
+    generated_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-generated_at",)
+        indexes = [
+            models.Index(
+                fields=("cylinder", "-generated_at"),
+                name="depletion_cylinder_time_idx",
+            ),
+            models.Index(
+                fields=("status",),
+                name="depletion_status_idx",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.cylinder.serial_number} - "
+            f"{self.status} - "
+            f"{self.model_version}"
+        )
