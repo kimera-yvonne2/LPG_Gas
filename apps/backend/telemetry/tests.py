@@ -9,7 +9,8 @@ from rest_framework.test import APIClient
 from accounts.models import User
 from devices.models import Cylinder, Household, Sensor
 from refills.models import RefillRequest
-from telemetry.models import Reading
+from telemetry.models import DepletionEstimate, Reading
+from telemetry.services import generate_depletion_estimate
 
 pytestmark = pytest.mark.django_db
 
@@ -52,6 +53,28 @@ def asset_graph():
         last_seen=timezone.now() - timedelta(minutes=1),
     )
     return owner, cylinder, sensor
+
+
+def create_prediction_readings(sensor, cylinder):
+    now = timezone.now()
+
+    readings = [
+        (now - timedelta(days=4), Decimal("10.000")),
+        (now - timedelta(days=3), Decimal("9.200")),
+        (now - timedelta(days=2), Decimal("8.300")),
+        (now - timedelta(days=1), Decimal("7.300")),
+        (now - timedelta(hours=1), Decimal("6.500")),
+    ]
+
+    for timestamp, weight in readings:
+        Reading.objects.create(
+            sensor=sensor,
+            cylinder=cylinder,
+            timestamp=timestamp,
+            weight=weight,
+            temperature=Decimal("25.00"),
+            signal_strength=-60,
+        )
 
 
 def test_technician_creates_reading_and_updates_cylinder(api_client, asset_graph):
@@ -229,3 +252,24 @@ def test_disconnected_device_cannot_send_reading(api_client, asset_graph):
     )
     assert response.status_code == 400
     assert "sensor" in response.data["detail"]
+
+
+def test_generate_depletion_estimate_success(asset_graph):
+    _, cylinder, sensor = asset_graph
+    create_prediction_readings(sensor, cylinder)
+
+    estimate = generate_depletion_estimate(cylinder)
+
+    assert estimate.status == DepletionEstimate.Status.AVAILABLE
+    assert estimate.model_name == "weighted-average-depletion"
+    assert estimate.model_version == "1.0.0"
+    assert estimate.input_reading_count == 5
+    assert estimate.estimated_days_remaining is not None
+    assert estimate.estimated_days_remaining > 0
+    assert estimate.estimated_depletion_at is not None
+    assert estimate.lower_bound_at is not None
+    assert estimate.upper_bound_at is not None
+    assert estimate.lower_bound_at <= estimate.estimated_depletion_at
+    assert estimate.estimated_depletion_at <= estimate.upper_bound_at
+    assert estimate.confidence_score is not None
+    assert Decimal("0") <= estimate.confidence_score <= Decimal("1")
