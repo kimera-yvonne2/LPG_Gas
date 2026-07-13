@@ -485,3 +485,35 @@ def test_depletion_task_handles_missing_cylinder():
 
     assert estimate_id is None
     assert DepletionEstimate.objects.count() == 0
+
+
+def test_generate_depletion_estimate_handles_zero_consumption(asset_graph):
+    _, cylinder, sensor = asset_graph
+    now = timezone.now()
+
+    readings = [
+        (now - timedelta(days=4), Decimal("9.000")),
+        (now - timedelta(days=3), Decimal("9.000")),
+        (now - timedelta(days=2), Decimal("9.000")),
+        (now - timedelta(days=1), Decimal("9.000")),
+        (now - timedelta(hours=1), Decimal("9.000")),
+    ]
+
+    for timestamp, weight in readings:
+        Reading.objects.create(
+            sensor=sensor,
+            cylinder=cylinder,
+            timestamp=timestamp,
+            weight=weight,
+            temperature=Decimal("25.00"),
+            signal_strength=-60,
+        )
+
+    estimate = generate_depletion_estimate(cylinder)
+
+    assert estimate.status == DepletionEstimate.Status.INSUFFICIENT_DATA
+    assert estimate.estimated_days_remaining is None
+    assert estimate.estimated_depletion_at is None
+    assert estimate.lower_bound_at is None
+    assert estimate.upper_bound_at is None
+    assert "reliable gas-consumption rate" in estimate.failure_reason
