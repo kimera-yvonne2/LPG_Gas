@@ -150,8 +150,7 @@ def test_household_cannot_create_or_modify_readings(api_client, asset_graph):
 
 
 def test_reading_filter_search_order_and_pagination(api_client, asset_graph):
-    _, _, sensor = asset_graph
-    technician = make_user("filter-tech@example.com", User.Role.TECHNICIAN)
+    owner, _, sensor = asset_graph
     old = Reading.objects.create(
         sensor=sensor,
         cylinder=sensor.cylinder,
@@ -168,7 +167,7 @@ def test_reading_filter_search_order_and_pagination(api_client, asset_graph):
         temperature=Decimal("26.00"),
         signal_strength=-50,
     )
-    api_client.force_authenticate(technician)
+    api_client.force_authenticate(owner)
     response = api_client.get(
         reverse("v1:telemetry:reading-list"),
         {
