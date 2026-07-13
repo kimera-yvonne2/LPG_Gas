@@ -435,3 +435,32 @@ def test_household_cannot_view_another_households_depletion_estimate(
 
     assert response.status_code == 200
     assert response.data["count"] == 0
+
+
+def test_technician_cannot_access_depletion_estimates(api_client, asset_graph):
+    _, cylinder, _ = asset_graph
+
+    DepletionEstimate.objects.create(
+        cylinder=cylinder,
+        status=DepletionEstimate.Status.AVAILABLE,
+        estimated_depletion_at=timezone.now() + timedelta(days=5),
+        lower_bound_at=timezone.now() + timedelta(days=4),
+        upper_bound_at=timezone.now() + timedelta(days=7),
+        estimated_days_remaining=Decimal("5.00"),
+        confidence_score=Decimal("0.80"),
+        model_name="weighted-average-depletion",
+        model_version="1.0.0",
+        input_reading_count=5,
+        input_started_at=timezone.now() - timedelta(days=4),
+        input_ended_at=timezone.now() - timedelta(hours=1),
+    )
+
+    technician = make_user(
+        "prediction-tech@example.com",
+        User.Role.TECHNICIAN,
+    )
+    api_client.force_authenticate(technician)
+
+    response = api_client.get(reverse("v1:telemetry:depletion-estimate-list"))
+
+    assert response.status_code == 403
