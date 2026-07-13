@@ -1,5 +1,5 @@
 from datetime import timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 import pytest
 from django.urls import reverse
@@ -517,3 +517,30 @@ def test_generate_depletion_estimate_handles_zero_consumption(asset_graph):
     assert estimate.lower_bound_at is None
     assert estimate.upper_bound_at is None
     assert "reliable gas-consumption rate" in estimate.failure_reason
+
+
+def test_generate_depletion_estimate_handles_calculation_failure(
+    asset_graph,
+    monkeypatch,
+):
+    _, cylinder, sensor = asset_graph
+    create_prediction_readings(sensor, cylinder)
+
+    def raise_calculation_error(values):
+        raise InvalidOperation
+
+    monkeypatch.setattr(
+        "telemetry.services._weighted_average",
+        raise_calculation_error,
+    )
+
+    estimate = generate_depletion_estimate(cylinder)
+
+    assert estimate.status == DepletionEstimate.Status.FAILED
+    assert estimate.estimated_days_remaining is None
+    assert estimate.estimated_depletion_at is None
+    assert estimate.lower_bound_at is None
+    assert estimate.upper_bound_at is None
+    assert estimate.model_name == "weighted-average-depletion"
+    assert estimate.model_version == "1.0.0"
+    assert "InvalidOperation" in estimate.failure_reason
