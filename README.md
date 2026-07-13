@@ -88,3 +88,21 @@ python manage.py spectacular --api-version v1 --validate --file schema.yml
 ```
 
 See [architecture](docs/architecture.md), [development guidelines](docs/development.md), [coding standards](docs/coding-standards.md), [API conventions](docs/api/README.md), [security](docs/security.md), and [Git workflow](docs/git-workflow.md).
+## Depletion prediction
+
+The backend asynchronously generates LPG depletion estimates from recent telemetry readings.
+
+Each estimate includes:
+
+- Estimated depletion date and time
+- Estimated days remaining
+- Confidence score
+- Uncertainty window (lower and upper bounds)
+- Model name and version
+- Number of readings used
+
+When there is insufficient or stale telemetry data, the system stores a safe fallback state instead of generating a potentially misleading prediction.
+
+> **Warning**
+>
+> Depletion predictions are operational estimates only and must never be interpreted as safety guarantees. They are intended to assist refill planning and monitoring.
