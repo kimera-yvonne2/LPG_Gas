@@ -1,11 +1,20 @@
+from accounts.permissions import IsAdminRole
+from accounts.selectors import user_list
+from accounts.serializers import (AdminUserWriteSerializer,
+                                  EmailVerificationSerializer, LoginSerializer,
+                                  LogoutSerializer,
+                                  PasswordResetConfirmSerializer,
+                                  PasswordResetRequestSerializer,
+                                  RegistrationSerializer,
+                                  ResendVerificationSerializer, UserSerializer)
+from accounts.services import (can_resend_verification,
+                               delete_household_account,
+                               send_password_reset_email,
+                               send_verification_email, verify_email)
 from django.contrib.auth import get_user_model
 from django.db.models import Q
-from drf_spectacular.utils import (
-    OpenApiExample,
-    OpenApiParameter,
-    extend_schema,
-    extend_schema_view,
-)
+from drf_spectacular.utils import (OpenApiExample, OpenApiParameter,
+                                   extend_schema, extend_schema_view)
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -13,28 +22,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-
-from accounts.permissions import IsAdminRole
-from accounts.selectors import user_list
-from accounts.serializers import (
-    AdminUserWriteSerializer,
-    EmailVerificationSerializer,
-    LoginSerializer,
-    LogoutSerializer,
-    PasswordResetConfirmSerializer,
-    PasswordResetRequestSerializer,
-    RegistrationSerializer,
-    ResendVerificationSerializer,
-    UserSerializer,
-)
-from accounts.services import (
-    can_resend_verification,
-    delete_household_account,
-    send_password_reset_email,
-    send_verification_email,
-    verify_email,
-)
+from rest_framework_simplejwt.views import (TokenObtainPairView,
+                                            TokenRefreshView)
 
 User = get_user_model()
 
@@ -150,7 +139,9 @@ class EmailVerificationView(APIView):
     @extend_schema(
         tags=["Authentication"],
         summary="Verify an email address",
-        parameters=[OpenApiParameter("token", str, OpenApiParameter.QUERY, required=True)],
+        parameters=[
+            OpenApiParameter("token", str, OpenApiParameter.QUERY, required=True)
+        ],
         responses={204: None},
     )
     def get(self, request):
@@ -192,7 +183,9 @@ class ResendVerificationView(APIView):
 @extend_schema_view(
     list=extend_schema(tags=["Users"], summary="List users (admin only)"),
     retrieve=extend_schema(tags=["Users"], summary="Retrieve a user (admin only)"),
-    create=extend_schema(tags=["Users"], summary="Create a role-bearing user (admin only)"),
+    create=extend_schema(
+        tags=["Users"], summary="Create a role-bearing user (admin only)"
+    ),
     update=extend_schema(tags=["Users"], summary="Replace a user (admin only)"),
     partial_update=extend_schema(tags=["Users"], summary="Update a user (admin only)"),
 )

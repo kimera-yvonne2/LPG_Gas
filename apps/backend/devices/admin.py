@@ -1,6 +1,5 @@
-from django.contrib import admin
-
 from devices.models import Cylinder, Household, Sensor
+from django.contrib import admin
 
 
 @admin.register(Household)
@@ -11,7 +10,13 @@ class HouseholdAdmin(admin.ModelAdmin):
 
 @admin.register(Cylinder)
 class CylinderAdmin(admin.ModelAdmin):
-    list_display = ("serial_number", "household", "capacity", "gas_percentage", "status")
+    list_display = (
+        "serial_number",
+        "household",
+        "capacity",
+        "gas_percentage",
+        "status",
+    )
     list_filter = ("status", "installation_date")
     search_fields = ("serial_number", "household__owner__username")
     readonly_fields = ("gas_percentage",)

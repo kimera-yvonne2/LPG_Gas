@@ -23,7 +23,10 @@ class Migration(migrations.Migration):
                 (
                     "id",
                     models.BigAutoField(
-                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
                     ),
                 ),
                 ("timestamp", models.DateTimeField(default=django.utils.timezone.now)),
@@ -33,7 +36,9 @@ class Migration(migrations.Migration):
                         decimal_places=3,
                         help_text="Measured total cylinder weight in kilograms.",
                         max_digits=8,
-                        validators=[django.core.validators.MinValueValidator(Decimal("0"))],
+                        validators=[
+                            django.core.validators.MinValueValidator(Decimal("0"))
+                        ],
                     ),
                 ),
                 (
@@ -82,12 +87,15 @@ class Migration(migrations.Migration):
             options={
                 "ordering": ("-timestamp",),
                 "indexes": [
-                    models.Index(fields=["sensor", "-timestamp"], name="reading_sensor_time_idx"),
+                    models.Index(
+                        fields=["sensor", "-timestamp"], name="reading_sensor_time_idx"
+                    ),
                     models.Index(fields=["timestamp"], name="reading_time_idx"),
                 ],
                 "constraints": [
                     models.UniqueConstraint(
-                        fields=("sensor", "timestamp"), name="unique_sensor_reading_timestamp"
+                        fields=("sensor", "timestamp"),
+                        name="unique_sensor_reading_timestamp",
                     )
                 ],
             },

@@ -1,7 +1,6 @@
-from rest_framework import serializers
-
 from accounts.models import User
 from refills.models import RefillRequest
+from rest_framework import serializers
 
 
 class RefillProviderSerializer(serializers.ModelSerializer):
@@ -68,7 +67,10 @@ class RefillRequestSerializer(serializers.ModelSerializer):
 
     def validate_cylinder(self, cylinder):
         request = self.context["request"]
-        if request.user.role == "household" and cylinder.household.owner_id != request.user.id:
+        if (
+            request.user.role == "household"
+            and cylinder.household.owner_id != request.user.id
+        ):
             raise serializers.ValidationError(
                 "You can only request refills for your own cylinders."
             )

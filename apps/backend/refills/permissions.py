@@ -1,6 +1,5 @@
-from rest_framework.permissions import SAFE_METHODS, BasePermission
-
 from accounts.models import User
+from rest_framework.permissions import SAFE_METHODS, BasePermission
 
 
 class RefillRequestPermission(BasePermission):
@@ -31,5 +30,7 @@ class RefillRequestPermission(BasePermission):
         if user.role == User.Role.HOUSEHOLD:
             return request.method in SAFE_METHODS and obj.household.owner_id == user.id
         if user.role == User.Role.TECHNICIAN:
-            return request.method in SAFE_METHODS and obj.assigned_technician_id == user.id
+            return (
+                request.method in SAFE_METHODS and obj.assigned_technician_id == user.id
+            )
         return False

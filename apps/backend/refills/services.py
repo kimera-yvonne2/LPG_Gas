@@ -1,24 +1,23 @@
-from django.core.exceptions import (
-    PermissionDenied,
-)
-from django.core.exceptions import (
-    ValidationError as DjangoValidationError,
-)
-from django.db import transaction
-from rest_framework.exceptions import ValidationError
-
 from accounts.models import User
+from django.core.exceptions import PermissionDenied
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
 from refills.models import RefillRequest
+from rest_framework.exceptions import ValidationError
 
 
 @transaction.atomic
 def transition_refill_request(
     *, refill_request_id: int, status: str, actor: User
 ) -> RefillRequest:
-    refill_request = RefillRequest.objects.select_for_update().select_related(
-        "household",
-        "household__owner",
-    ).get(pk=refill_request_id)
+    refill_request = (
+        RefillRequest.objects.select_for_update()
+        .select_related(
+            "household",
+            "household__owner",
+        )
+        .get(pk=refill_request_id)
+    )
 
     if actor.role == User.Role.HOUSEHOLD:
         if refill_request.household.owner_id != actor.id:

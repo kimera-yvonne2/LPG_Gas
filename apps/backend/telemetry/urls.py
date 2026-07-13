@@ -1,5 +1,4 @@
 from rest_framework.routers import DefaultRouter
-
 from telemetry.views import ReadingViewSet
 
 app_name = "telemetry"

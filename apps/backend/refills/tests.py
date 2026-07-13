@@ -1,13 +1,12 @@
 from decimal import Decimal
 
 import pytest
-from django.urls import reverse
-from django.utils import timezone
-from rest_framework.test import APIClient
-
 from accounts.models import User
 from devices.models import Cylinder, Household
+from django.urls import reverse
+from django.utils import timezone
 from refills.models import RefillRequest
+from rest_framework.test import APIClient
 
 pytestmark = pytest.mark.django_db
 
@@ -88,7 +87,9 @@ def test_refill_request_defaults_to_pending_manual_and_can_progress(
     assert request.status == RefillRequest.Status.COMPLETED
 
 
-def test_refill_request_can_be_created_as_automatic_source(api_client, household, cylinder):
+def test_refill_request_can_be_created_as_automatic_source(
+    api_client, household, cylinder
+):
     api_client.force_authenticate(household.owner)
     response = api_client.post(
         reverse("v1:refills:refill-request-list"),
@@ -104,7 +105,9 @@ def test_refill_request_can_be_created_as_automatic_source(api_client, household
     assert response.data["assigned_technician"] is None
 
 
-def test_household_manual_refill_request_requires_technician(api_client, household, cylinder):
+def test_household_manual_refill_request_requires_technician(
+    api_client, household, cylinder
+):
     api_client.force_authenticate(household.owner)
     response = api_client.post(
         reverse("v1:refills:refill-request-list"),
@@ -339,7 +342,9 @@ def test_technician_cannot_retrieve_or_modify_another_technicians_request(
     url = reverse("v1:refills:refill-request-detail", args=[refill_request.id])
 
     assert api_client.get(url).status_code == 404
-    assert api_client.patch(url, {"status": "accepted"}, format="json").status_code == 403
+    assert (
+        api_client.patch(url, {"status": "accepted"}, format="json").status_code == 403
+    )
 
 
 def test_admin_lists_all_refill_requests(api_client, household, cylinder, technician):

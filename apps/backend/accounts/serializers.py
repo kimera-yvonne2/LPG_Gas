@@ -1,12 +1,12 @@
+from accounts.models import User
+from accounts.services import (create_managed_user, ensure_household,
+                               register_household)
 from django.contrib.auth import password_validation
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-
-from accounts.models import User
-from accounts.services import create_managed_user, ensure_household, register_household
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -57,7 +57,9 @@ class AdminUserWriteSerializer(UserSerializer):
 class RegistrationSerializer(serializers.Serializer):
     email = serializers.EmailField()
     username = serializers.CharField(max_length=150)
-    phone_number = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    phone_number = serializers.CharField(
+        max_length=20, required=False, allow_blank=True
+    )
     password = serializers.CharField(write_only=True)
     password_confirm = serializers.CharField(write_only=True)
 
@@ -69,12 +71,16 @@ class RegistrationSerializer(serializers.Serializer):
 
     def validate_username(self, value):
         if User.objects.filter(username__iexact=value).exists():
-            raise serializers.ValidationError("A user with this username already exists.")
+            raise serializers.ValidationError(
+                "A user with this username already exists."
+            )
         return value
 
     def validate(self, attrs):
         if attrs["password"] != attrs.pop("password_confirm"):
-            raise serializers.ValidationError({"password_confirm": "Passwords do not match."})
+            raise serializers.ValidationError(
+                {"password_confirm": "Passwords do not match."}
+            )
         password_validation.validate_password(attrs["password"])
         return attrs
 
@@ -112,14 +118,20 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         if attrs["password"] != attrs.pop("password_confirm"):
-            raise serializers.ValidationError({"password_confirm": "Passwords do not match."})
+            raise serializers.ValidationError(
+                {"password_confirm": "Passwords do not match."}
+            )
         try:
             user_id = force_str(urlsafe_base64_decode(attrs["uid"]))
             user = User.objects.get(pk=user_id, is_active=True)
         except (ValueError, TypeError, OverflowError, User.DoesNotExist):
-            raise serializers.ValidationError({"token": "Invalid or expired reset link."}) from None
+            raise serializers.ValidationError(
+                {"token": "Invalid or expired reset link."}
+            ) from None
         if not default_token_generator.check_token(user, attrs["token"]):
-            raise serializers.ValidationError({"token": "Invalid or expired reset link."})
+            raise serializers.ValidationError(
+                {"token": "Invalid or expired reset link."}
+            )
         password_validation.validate_password(attrs["password"], user=user)
         attrs["user"] = user
         return attrs

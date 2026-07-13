@@ -1,6 +1,5 @@
-from rest_framework.permissions import SAFE_METHODS, BasePermission
-
 from accounts.models import User
+from rest_framework.permissions import SAFE_METHODS, BasePermission
 
 
 def is_valid_user(user):
@@ -17,7 +16,9 @@ class HouseholdPermission(BasePermission):
         if request.user.role == User.Role.TECHNICIAN:
             return request.method in SAFE_METHODS
         if request.user.role == User.Role.HOUSEHOLD:
-            return request.method in SAFE_METHODS or not hasattr(request.user, "household")
+            return request.method in SAFE_METHODS or not hasattr(
+                request.user, "household"
+            )
         return False
 
     def has_object_permission(self, request, view, obj):

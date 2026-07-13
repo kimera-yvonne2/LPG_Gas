@@ -44,7 +44,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.HOUSEHOLD)
     phone_number = models.CharField(max_length=20, blank=True)
     email_verified = models.BooleanField(default=False)
-    email_verification_token = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    email_verification_token = models.UUIDField(
+        default=uuid.uuid4, editable=False, unique=True
+    )
     email_verification_sent_at = models.DateTimeField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)

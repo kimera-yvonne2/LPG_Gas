@@ -1,3 +1,14 @@
+from devices.filters import CylinderFilter, HouseholdFilter, SensorFilter
+from devices.models import Cylinder, Household, Sensor
+from devices.permissions import (CylinderPermission, HouseholdPermission,
+                                 SensorPermission)
+from devices.selectors import (cylinder_list_for, household_list_for,
+                               sensor_list_for)
+from devices.serializers import (CylinderReplacementSerializer,
+                                 CylinderSerializer, HouseholdSerializer,
+                                 SensorConnectionSerializer, SensorSerializer)
+from devices.services import (connect_sensor, disconnect_sensor,
+                              remove_cylinder, remove_sensor, replace_cylinder)
 from django.db.models.deletion import ProtectedError
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
@@ -5,45 +16,42 @@ from rest_framework import filters, serializers, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from devices.filters import CylinderFilter, HouseholdFilter, SensorFilter
-from devices.models import Cylinder, Household, Sensor
-from devices.permissions import CylinderPermission, HouseholdPermission, SensorPermission
-from devices.selectors import cylinder_list_for, household_list_for, sensor_list_for
-from devices.serializers import (
-    CylinderReplacementSerializer,
-    CylinderSerializer,
-    HouseholdSerializer,
-    SensorConnectionSerializer,
-    SensorSerializer,
-)
-from devices.services import (
-    connect_sensor,
-    disconnect_sensor,
-    remove_cylinder,
-    remove_sensor,
-    replace_cylinder,
-)
-
 
 class AssetViewSet(viewsets.ModelViewSet):
-    filter_backends = (DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter)
+    filter_backends = (
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    )
 
     def perform_destroy(self, instance):
         try:
             instance.delete()
         except ProtectedError as exc:
             raise serializers.ValidationError(
-                {"detail": "This asset is referenced by another record and cannot be deleted."}
+                {
+                    "detail": "This asset is referenced by another record and cannot be deleted."
+                }
             ) from exc
 
 
 @extend_schema_view(
     list=extend_schema(tags=["LPG Assets - Households"], summary="List households"),
-    retrieve=extend_schema(tags=["LPG Assets - Households"], summary="Retrieve a household"),
-    create=extend_schema(tags=["LPG Assets - Households"], summary="Create a household"),
-    update=extend_schema(tags=["LPG Assets - Households"], summary="Replace a household"),
-    partial_update=extend_schema(tags=["LPG Assets - Households"], summary="Update a household"),
-    destroy=extend_schema(tags=["LPG Assets - Households"], summary="Delete a household"),
+    retrieve=extend_schema(
+        tags=["LPG Assets - Households"], summary="Retrieve a household"
+    ),
+    create=extend_schema(
+        tags=["LPG Assets - Households"], summary="Create a household"
+    ),
+    update=extend_schema(
+        tags=["LPG Assets - Households"], summary="Replace a household"
+    ),
+    partial_update=extend_schema(
+        tags=["LPG Assets - Households"], summary="Update a household"
+    ),
+    destroy=extend_schema(
+        tags=["LPG Assets - Households"], summary="Delete a household"
+    ),
 )
 class HouseholdViewSet(AssetViewSet):
     queryset = Household.objects.none()
@@ -60,10 +68,14 @@ class HouseholdViewSet(AssetViewSet):
 
 @extend_schema_view(
     list=extend_schema(tags=["LPG Assets - Cylinders"], summary="List cylinders"),
-    retrieve=extend_schema(tags=["LPG Assets - Cylinders"], summary="Retrieve a cylinder"),
+    retrieve=extend_schema(
+        tags=["LPG Assets - Cylinders"], summary="Retrieve a cylinder"
+    ),
     create=extend_schema(tags=["LPG Assets - Cylinders"], summary="Create a cylinder"),
     update=extend_schema(tags=["LPG Assets - Cylinders"], summary="Replace a cylinder"),
-    partial_update=extend_schema(tags=["LPG Assets - Cylinders"], summary="Update a cylinder"),
+    partial_update=extend_schema(
+        tags=["LPG Assets - Cylinders"], summary="Update a cylinder"
+    ),
     destroy=extend_schema(tags=["LPG Assets - Cylinders"], summary="Delete a cylinder"),
 )
 class CylinderViewSet(AssetViewSet):
@@ -76,7 +88,12 @@ class CylinderViewSet(AssetViewSet):
         "household__owner__username",
         "household__owner__email",
     )
-    ordering_fields = ("serial_number", "capacity", "gas_percentage", "installation_date")
+    ordering_fields = (
+        "serial_number",
+        "capacity",
+        "gas_percentage",
+        "installation_date",
+    )
     ordering = ("serial_number",)
 
     def get_queryset(self):
@@ -107,7 +124,9 @@ class CylinderViewSet(AssetViewSet):
     retrieve=extend_schema(tags=["LPG Assets - Sensors"], summary="Retrieve a sensor"),
     create=extend_schema(tags=["LPG Assets - Sensors"], summary="Register a sensor"),
     update=extend_schema(tags=["LPG Assets - Sensors"], summary="Replace a sensor"),
-    partial_update=extend_schema(tags=["LPG Assets - Sensors"], summary="Update a sensor"),
+    partial_update=extend_schema(
+        tags=["LPG Assets - Sensors"], summary="Update a sensor"
+    ),
     destroy=extend_schema(tags=["LPG Assets - Sensors"], summary="Delete a sensor"),
 )
 class SensorViewSet(AssetViewSet):
@@ -115,7 +134,12 @@ class SensorViewSet(AssetViewSet):
     serializer_class = SensorSerializer
     permission_classes = (SensorPermission,)
     filterset_class = SensorFilter
-    search_fields = ("esp32_id", "mac_address", "firmware_version", "cylinder__serial_number")
+    search_fields = (
+        "esp32_id",
+        "mac_address",
+        "firmware_version",
+        "cylinder__serial_number",
+    )
     ordering_fields = ("esp32_id", "battery_level", "last_seen", "created_at")
     ordering = ("esp32_id",)
 

@@ -1,16 +1,19 @@
 from decimal import Decimal
 
+from devices.models import Cylinder, Sensor
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
 
-from devices.models import Cylinder, Sensor
-
 
 class Reading(models.Model):
-    sensor = models.ForeignKey(Sensor, on_delete=models.PROTECT, related_name="readings")
-    cylinder = models.ForeignKey(Cylinder, on_delete=models.PROTECT, related_name="readings")
+    sensor = models.ForeignKey(
+        Sensor, on_delete=models.PROTECT, related_name="readings"
+    )
+    cylinder = models.ForeignKey(
+        Cylinder, on_delete=models.PROTECT, related_name="readings"
+    )
     timestamp = models.DateTimeField(default=timezone.now)
     weight = models.DecimalField(
         max_digits=8,
@@ -26,7 +29,10 @@ class Reading(models.Model):
     temperature = models.DecimalField(
         max_digits=5,
         decimal_places=2,
-        validators=[MinValueValidator(Decimal("-40")), MaxValueValidator(Decimal("125"))],
+        validators=[
+            MinValueValidator(Decimal("-40")),
+            MaxValueValidator(Decimal("125")),
+        ],
         help_text="Sensor temperature in degrees Celsius.",
     )
     signal_strength = models.SmallIntegerField(
@@ -44,7 +50,9 @@ class Reading(models.Model):
             )
         ]
         indexes = [
-            models.Index(fields=("sensor", "-timestamp"), name="reading_sensor_time_idx"),
+            models.Index(
+                fields=("sensor", "-timestamp"), name="reading_sensor_time_idx"
+            ),
             models.Index(fields=("timestamp",), name="reading_time_idx"),
         ]
 
@@ -60,13 +68,17 @@ class Reading(models.Model):
 
     def clean(self):
         if self.timestamp and self.timestamp > timezone.now():
-            raise ValidationError({"timestamp": "Reading timestamp cannot be in the future."})
+            raise ValidationError(
+                {"timestamp": "Reading timestamp cannot be in the future."}
+            )
 
         cylinder = self.cylinder if self.cylinder_id else None
         if self.sensor_id and cylinder:
             if self.sensor.household_id != cylinder.household_id:
                 raise ValidationError(
-                    {"cylinder": "The reading cylinder must belong to the device household."}
+                    {
+                        "cylinder": "The reading cylinder must belong to the device household."
+                    }
                 )
         if cylinder and self.weight is not None:
             if self.weight < cylinder.empty_weight:
@@ -75,7 +87,9 @@ class Reading(models.Model):
                 )
             maximum = cylinder.empty_weight + cylinder.capacity
             if self.weight > maximum:
-                raise ValidationError({"weight": "Reading weight exceeds the cylinder capacity."})
+                raise ValidationError(
+                    {"weight": "Reading weight exceeds the cylinder capacity."}
+                )
 
     def calculate_gas_percentage(self):
         cylinder = self.cylinder

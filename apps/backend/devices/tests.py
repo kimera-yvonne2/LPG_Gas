@@ -2,13 +2,12 @@ from datetime import timedelta
 from decimal import Decimal
 
 import pytest
-from django.urls import reverse
-from django.utils import timezone
-from rest_framework.test import APIClient
-
 from accounts.models import User
 from devices.models import Cylinder, Household, Sensor
+from django.urls import reverse
+from django.utils import timezone
 from refills.models import RefillRequest
+from rest_framework.test import APIClient
 from telemetry.models import Reading
 
 pytestmark = pytest.mark.django_db
@@ -83,7 +82,9 @@ def authenticate(client, user):
     client.force_authenticate(user=user)
 
 
-def test_household_user_can_create_own_household_without_owner_id(api_client, household_user):
+def test_household_user_can_create_own_household_without_owner_id(
+    api_client, household_user
+):
     authenticate(api_client, household_user)
     response = api_client.post(
         reverse("v1:devices:household-list"),
@@ -94,7 +95,9 @@ def test_household_user_can_create_own_household_without_owner_id(api_client, ho
     assert response.data["owner"] == household_user.id
 
 
-def test_household_list_is_paginated_and_owner_scoped(api_client, household, other_household_user):
+def test_household_list_is_paginated_and_owner_scoped(
+    api_client, household, other_household_user
+):
     Household.objects.create(owner=other_household_user)
     authenticate(api_client, household.owner)
     response = api_client.get(reverse("v1:devices:household-list"))
@@ -294,7 +297,9 @@ def test_technician_cannot_create_cylinder(api_client, household, technician):
     assert response.status_code == 403
 
 
-def test_inactive_users_are_blocked_but_legacy_unverified_users_are_allowed(api_client, household):
+def test_inactive_users_are_blocked_but_legacy_unverified_users_are_allowed(
+    api_client, household
+):
     inactive_user = User.objects.create_user(
         email="inactive@example.com",
         username="inactive",
@@ -318,7 +323,9 @@ def test_inactive_users_are_blocked_but_legacy_unverified_users_are_allowed(api_
     assert api_client.get(reverse("v1:devices:household-list")).status_code == 200
 
 
-def test_technician_can_register_sensor_and_mac_is_normalized(api_client, cylinder, technician):
+def test_technician_can_register_sensor_and_mac_is_normalized(
+    api_client, cylinder, technician
+):
     authenticate(api_client, technician)
     response = api_client.post(
         reverse("v1:devices:sensor-list"),
@@ -337,7 +344,9 @@ def test_technician_can_register_sensor_and_mac_is_normalized(api_client, cylind
     assert response.data["mac_address"] == "AA:BB:CC:DD:EE:FF"
 
 
-def test_household_can_create_update_and_delete_sensor_for_own_cylinder(api_client, cylinder):
+def test_household_can_create_update_and_delete_sensor_for_own_cylinder(
+    api_client, cylinder
+):
     authenticate(api_client, cylinder.household.owner)
 
     create_response = api_client.post(
@@ -363,7 +372,9 @@ def test_household_can_create_update_and_delete_sensor_for_own_cylinder(api_clie
     )
     assert update_response.status_code == 200
 
-    delete_response = api_client.delete(reverse("v1:devices:sensor-detail", args=[sensor.id]))
+    delete_response = api_client.delete(
+        reverse("v1:devices:sensor-detail", args=[sensor.id])
+    )
     assert delete_response.status_code == 200
     assert delete_response.data["result"] == "deleted"
 
@@ -402,7 +413,9 @@ def test_cylinder_delete_disconnects_device_when_there_is_no_history(
         battery_level=Decimal("90.00"),
     )
     authenticate(api_client, admin_user)
-    response = api_client.delete(reverse("v1:devices:cylinder-detail", args=[cylinder.id]))
+    response = api_client.delete(
+        reverse("v1:devices:cylinder-detail", args=[cylinder.id])
+    )
     assert response.status_code == 200
     assert response.data["result"] == "deleted"
     assert not Cylinder.objects.filter(pk=cylinder.pk).exists()
@@ -428,7 +441,9 @@ def test_used_cylinder_is_retired_and_hidden_instead_of_destroyed(api_client, cy
     )
     authenticate(api_client, cylinder.household.owner)
 
-    response = api_client.delete(reverse("v1:devices:cylinder-detail", args=[cylinder.id]))
+    response = api_client.delete(
+        reverse("v1:devices:cylinder-detail", args=[cylinder.id])
+    )
 
     assert response.status_code == 200
     assert response.data["result"] == "retired"
@@ -439,7 +454,9 @@ def test_used_cylinder_is_retired_and_hidden_instead_of_destroyed(api_client, cy
     assert api_client.get(reverse("v1:devices:cylinder-list")).data["count"] == 0
 
 
-def test_replacing_cylinder_moves_device_and_preserves_reading_snapshot(api_client, cylinder):
+def test_replacing_cylinder_moves_device_and_preserves_reading_snapshot(
+    api_client, cylinder
+):
     sensor = Sensor.objects.create(
         household=cylinder.household,
         cylinder=cylinder,

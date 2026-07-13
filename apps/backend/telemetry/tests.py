@@ -2,13 +2,12 @@ from datetime import timedelta
 from decimal import Decimal
 
 import pytest
-from django.urls import reverse
-from django.utils import timezone
-from rest_framework.test import APIClient
-
 from accounts.models import User
 from devices.models import Cylinder, Household, Sensor
+from django.urls import reverse
+from django.utils import timezone
 from refills.models import RefillRequest
+from rest_framework.test import APIClient
 from telemetry.models import Reading
 
 pytestmark = pytest.mark.django_db
@@ -146,7 +145,10 @@ def test_household_cannot_create_or_modify_readings(api_client, asset_graph):
     owner, _, _ = asset_graph
     api_client.force_authenticate(owner)
     assert api_client.post(reverse("v1:telemetry:reading-list"), {}).status_code == 403
-    assert api_client.put(reverse("v1:telemetry:reading-detail", args=[1]), {}).status_code == 403
+    assert (
+        api_client.put(reverse("v1:telemetry:reading-detail", args=[1]), {}).status_code
+        == 403
+    )
 
 
 def test_reading_filter_search_order_and_pagination(api_client, asset_graph):
@@ -171,7 +173,12 @@ def test_reading_filter_search_order_and_pagination(api_client, asset_graph):
     api_client.force_authenticate(technician)
     response = api_client.get(
         reverse("v1:telemetry:reading-list"),
-        {"search": sensor.esp32_id, "weight_min": 8, "ordering": "-weight", "page_size": 1},
+        {
+            "search": sensor.esp32_id,
+            "weight_min": 8,
+            "ordering": "-weight",
+            "page_size": 1,
+        },
     )
     assert response.status_code == 200
     assert response.data["count"] == 1

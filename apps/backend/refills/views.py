@@ -1,19 +1,16 @@
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters, generics, viewsets
-from rest_framework.decorators import action
-from rest_framework.response import Response
-
 from accounts.permissions import IsAdminRole, IsHousehold
 from accounts.selectors import refill_provider_list
+from django_filters.rest_framework import DjangoFilterBackend
 from refills.models import RefillRequest
 from refills.permissions import RefillRequestPermission
 from refills.selectors import refill_request_list_for
-from refills.serializers import (
-    RefillProviderSerializer,
-    RefillRequestSerializer,
-    RefillTransitionSerializer,
-)
+from refills.serializers import (RefillProviderSerializer,
+                                 RefillRequestSerializer,
+                                 RefillTransitionSerializer)
 from refills.services import transition_refill_request
+from rest_framework import filters, generics, viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
 
 
 class RefillProviderListView(generics.ListAPIView):
@@ -28,7 +25,11 @@ class RefillRequestViewSet(viewsets.ModelViewSet):
     queryset = RefillRequest.objects.none()
     serializer_class = RefillRequestSerializer
     permission_classes = (RefillRequestPermission,)
-    filter_backends = (DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter)
+    filter_backends = (
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    )
     search_fields = (
         "household__owner__username",
         "cylinder__serial_number",

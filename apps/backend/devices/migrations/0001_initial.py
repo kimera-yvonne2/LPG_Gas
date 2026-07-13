@@ -23,7 +23,10 @@ class Migration(migrations.Migration):
                 (
                     "id",
                     models.BigAutoField(
-                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
                     ),
                 ),
                 ("name", models.CharField(max_length=150)),
@@ -68,7 +71,10 @@ class Migration(migrations.Migration):
                 (
                     "id",
                     models.BigAutoField(
-                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
                     ),
                 ),
                 ("serial_number", models.CharField(max_length=100, unique=True)),
@@ -78,7 +84,9 @@ class Migration(migrations.Migration):
                         decimal_places=3,
                         help_text="Usable LPG capacity in kilograms.",
                         max_digits=8,
-                        validators=[django.core.validators.MinValueValidator(Decimal("0.001"))],
+                        validators=[
+                            django.core.validators.MinValueValidator(Decimal("0.001"))
+                        ],
                     ),
                 ),
                 (
@@ -87,7 +95,9 @@ class Migration(migrations.Migration):
                         decimal_places=3,
                         help_text="Cylinder tare weight in kilograms.",
                         max_digits=8,
-                        validators=[django.core.validators.MinValueValidator(Decimal("0"))],
+                        validators=[
+                            django.core.validators.MinValueValidator(Decimal("0"))
+                        ],
                     ),
                 ),
                 (
@@ -96,7 +106,9 @@ class Migration(migrations.Migration):
                         decimal_places=3,
                         help_text="Current total cylinder weight in kilograms.",
                         max_digits=8,
-                        validators=[django.core.validators.MinValueValidator(Decimal("0"))],
+                        validators=[
+                            django.core.validators.MinValueValidator(Decimal("0"))
+                        ],
                     ),
                 ),
                 (
@@ -138,7 +150,10 @@ class Migration(migrations.Migration):
                 (
                     "id",
                     models.BigAutoField(
-                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
                     ),
                 ),
                 ("esp32_id", models.CharField(max_length=100, unique=True)),
@@ -190,11 +205,15 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name="cylinder",
-            index=models.Index(fields=["household", "status"], name="cylinder_owner_status_idx"),
+            index=models.Index(
+                fields=["household", "status"], name="cylinder_owner_status_idx"
+            ),
         ),
         migrations.AddIndex(
             model_name="cylinder",
-            index=models.Index(fields=["installation_date"], name="cylinder_install_idx"),
+            index=models.Index(
+                fields=["installation_date"], name="cylinder_install_idx"
+            ),
         ),
         migrations.AddIndex(
             model_name="sensor",

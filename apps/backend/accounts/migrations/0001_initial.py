@@ -25,7 +25,9 @@ class Migration(migrations.Migration):
                 ("password", models.CharField(max_length=128, verbose_name="password")),
                 (
                     "last_login",
-                    models.DateTimeField(blank=True, null=True, verbose_name="last login"),
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="last login"
+                    ),
                 ),
                 (
                     "is_superuser",
@@ -51,7 +53,10 @@ class Migration(migrations.Migration):
                 ("phone_number", models.CharField(blank=True, max_length=20)),
                 ("is_active", models.BooleanField(default=True)),
                 ("is_staff", models.BooleanField(default=False)),
-                ("date_joined", models.DateTimeField(default=django.utils.timezone.now)),
+                (
+                    "date_joined",
+                    models.DateTimeField(default=django.utils.timezone.now),
+                ),
                 (
                     "groups",
                     models.ManyToManyField(
