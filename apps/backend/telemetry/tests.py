@@ -273,3 +273,26 @@ def test_generate_depletion_estimate_success(asset_graph):
     assert estimate.estimated_depletion_at <= estimate.upper_bound_at
     assert estimate.confidence_score is not None
     assert Decimal("0") <= estimate.confidence_score <= Decimal("1")
+
+
+def test_generate_depletion_estimate_returns_insufficient_data(asset_graph):
+    _, cylinder, sensor = asset_graph
+
+    Reading.objects.create(
+        sensor=sensor,
+        cylinder=cylinder,
+        timestamp=timezone.now() - timedelta(hours=2),
+        weight=Decimal("9.000"),
+        temperature=Decimal("25.00"),
+        signal_strength=-60,
+    )
+
+    estimate = generate_depletion_estimate(cylinder)
+
+    assert estimate.status == DepletionEstimate.Status.INSUFFICIENT_DATA
+    assert estimate.estimated_days_remaining is None
+    assert estimate.estimated_depletion_at is None
+    assert estimate.lower_bound_at is None
+    assert estimate.upper_bound_at is None
+    assert estimate.input_reading_count == 1
+    assert "At least 5 recent readings are required" in estimate.failure_reason
