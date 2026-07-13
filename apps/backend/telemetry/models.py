@@ -85,7 +85,7 @@ class Reading(models.Model):
         gas_weight = max(self.weight - cylinder.empty_weight, Decimal("0"))
         percentage = (gas_weight / cylinder.capacity) * Decimal("100")
         return min(percentage, Decimal("100")).quantize(Decimal("0.01"))
-    
+
 
 class DepletionEstimate(models.Model):
     class Status(models.TextChoices):
@@ -144,8 +144,4 @@ class DepletionEstimate(models.Model):
         ]
 
     def __str__(self):
-        return (
-            f"{self.cylinder.serial_number} - "
-            f"{self.status} - "
-            f"{self.model_version}"
-        )
+        return f"{self.cylinder.serial_number} - " f"{self.status} - " f"{self.model_version}"
