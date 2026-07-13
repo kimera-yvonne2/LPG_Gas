@@ -392,3 +392,46 @@ def test_household_can_view_own_depletion_estimate(api_client, asset_graph):
     assert response.data["results"][0]["cylinder"] == cylinder.id
     assert response.data["results"][0]["model_version"] == "1.0.0"
     assert "safety guarantee" in response.data["results"][0]["disclaimer"]
+
+
+def test_household_cannot_view_another_households_depletion_estimate(
+    api_client,
+    asset_graph,
+):
+    owner, _, _ = asset_graph
+
+    other_owner = make_user(
+        "other-household@example.com",
+        User.Role.HOUSEHOLD,
+    )
+    other_household = Household.objects.create(owner=other_owner)
+    other_cylinder = Cylinder.objects.create(
+        household=other_household,
+        serial_number="CYL-OTHER",
+        capacity=Decimal("10.000"),
+        empty_weight=Decimal("5.000"),
+        current_weight=Decimal("9.000"),
+        installation_date=timezone.localdate(),
+    )
+
+    DepletionEstimate.objects.create(
+        cylinder=other_cylinder,
+        status=DepletionEstimate.Status.AVAILABLE,
+        estimated_depletion_at=timezone.now() + timedelta(days=5),
+        lower_bound_at=timezone.now() + timedelta(days=4),
+        upper_bound_at=timezone.now() + timedelta(days=7),
+        estimated_days_remaining=Decimal("5.00"),
+        confidence_score=Decimal("0.80"),
+        model_name="weighted-average-depletion",
+        model_version="1.0.0",
+        input_reading_count=5,
+        input_started_at=timezone.now() - timedelta(days=4),
+        input_ended_at=timezone.now() - timedelta(hours=1),
+    )
+
+    api_client.force_authenticate(owner)
+
+    response = api_client.get(reverse("v1:telemetry:depletion-estimate-list"))
+
+    assert response.status_code == 200
+    assert response.data["count"] == 0
