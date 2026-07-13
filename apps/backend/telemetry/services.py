@@ -39,7 +39,9 @@ def create_reading(**data) -> Reading:
             "updated_at",
         )
     )
+    from telemetry.tasks import generate_depletion_estimate_task
 
+    transaction.on_commit(lambda: generate_depletion_estimate_task.delay(cylinder.id))
     return reading
 
 
