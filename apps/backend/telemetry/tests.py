@@ -296,3 +296,36 @@ def test_generate_depletion_estimate_returns_insufficient_data(asset_graph):
     assert estimate.upper_bound_at is None
     assert estimate.input_reading_count == 1
     assert "At least 5 recent readings are required" in estimate.failure_reason
+
+
+def test_generate_depletion_estimate_returns_stale_data(asset_graph):
+    _, cylinder, sensor = asset_graph
+    now = timezone.now()
+
+    readings = [
+        (now - timedelta(days=6), Decimal("10.000")),
+        (now - timedelta(days=5), Decimal("9.500")),
+        (now - timedelta(days=4), Decimal("9.000")),
+        (now - timedelta(days=3), Decimal("8.500")),
+        (now - timedelta(days=2), Decimal("8.000")),
+    ]
+
+    for timestamp, weight in readings:
+        Reading.objects.create(
+            sensor=sensor,
+            cylinder=cylinder,
+            timestamp=timestamp,
+            weight=weight,
+            temperature=Decimal("25.00"),
+            signal_strength=-60,
+        )
+
+    estimate = generate_depletion_estimate(cylinder)
+
+    assert estimate.status == DepletionEstimate.Status.STALE_DATA
+    assert estimate.estimated_days_remaining is None
+    assert estimate.estimated_depletion_at is None
+    assert estimate.lower_bound_at is None
+    assert estimate.upper_bound_at is None
+    assert estimate.input_reading_count == 5
+    assert "more than 24 hours old" in estimate.failure_reason
