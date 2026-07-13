@@ -478,3 +478,10 @@ def test_depletion_task_creates_estimate(asset_graph):
     assert estimate.cylinder == cylinder
     assert estimate.status == DepletionEstimate.Status.AVAILABLE
     assert estimate.model_version == "1.0.0"
+
+
+def test_depletion_task_handles_missing_cylinder():
+    estimate_id = generate_depletion_estimate_task.run(999999)
+
+    assert estimate_id is None
+    assert DepletionEstimate.objects.count() == 0
