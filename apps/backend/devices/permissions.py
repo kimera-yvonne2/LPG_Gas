@@ -67,7 +67,7 @@ class SensorPermission(BasePermission):
         if request.user.role == User.Role.ADMIN:
             return True
         if request.user.role == User.Role.HOUSEHOLD:
-            return obj.cylinder.household.owner_id == request.user.id
+            return obj.household.owner_id == request.user.id
         if request.user.role == User.Role.TECHNICIAN:
             return request.method in SAFE_METHODS or request.method == "DELETE"
         return False

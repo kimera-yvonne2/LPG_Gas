@@ -14,6 +14,7 @@ def validate_model(instance):
 
 
 class HouseholdSerializer(serializers.ModelSerializer):
+    owner_name = serializers.CharField(source="owner.username", read_only=True)
     owner_email = serializers.EmailField(source="owner.email", read_only=True)
 
     class Meta:
@@ -21,18 +22,20 @@ class HouseholdSerializer(serializers.ModelSerializer):
         fields = (
             "id",
             "owner",
+            "owner_name",
             "owner_email",
-            "name",
-            "email",
-            "phone",
-            "address",
-            "number_of_people",
-            "usage_type",
             "created_at",
             "updated_at",
         )
         read_only_fields = ("id", "created_at", "updated_at")
         extra_kwargs = {"owner": {"required": False}}
+
+    def get_fields(self):
+        fields = super().get_fields()
+        request = self.context.get("request")
+        if request and getattr(request.user, "role", None) == User.Role.TECHNICIAN:
+            fields.pop("owner_email", None)
+        return fields
 
     def validate_owner(self, owner):
         if owner.role != User.Role.HOUSEHOLD:
@@ -45,19 +48,7 @@ class HouseholdSerializer(serializers.ModelSerializer):
             attrs["owner"] = request.user
         elif not self.instance and "owner" not in attrs:
             raise serializers.ValidationError({"owner": "This field is required."})
-        values = {
-            field: attrs.get(field, getattr(self.instance, field, None))
-            for field in (
-                "owner",
-                "name",
-                "email",
-                "phone",
-                "address",
-                "number_of_people",
-                "usage_type",
-            )
-        }
-        candidate = Household(**values)
+        candidate = Household(owner=attrs.get("owner", getattr(self.instance, "owner", None)))
         if self.instance:
             candidate.pk = self.instance.pk
         validate_model(candidate)
@@ -68,7 +59,7 @@ class HouseholdSerializer(serializers.ModelSerializer):
 
 
 class CylinderSerializer(serializers.ModelSerializer):
-    household_name = serializers.CharField(source="household.name", read_only=True)
+    household_name = serializers.CharField(source="household.owner.username", read_only=True)
 
     class Meta:
         model = Cylinder
@@ -87,14 +78,31 @@ class CylinderSerializer(serializers.ModelSerializer):
             "updated_at",
         )
         read_only_fields = ("id", "gas_percentage", "created_at", "updated_at")
+        extra_kwargs = {"household": {"required": False}}
 
     def validate_household(self, household):
         user = self.context["request"].user
-        if user.role == User.Role.HOUSEHOLD and household.owner_id != user.id:
-            raise serializers.ValidationError("You can only manage cylinders in your household.")
+        if user.role == User.Role.HOUSEHOLD:
+            try:
+                return user.household
+            except Household.DoesNotExist:
+                raise serializers.ValidationError(
+                    "Your household account has not been provisioned."
+                ) from None
         return household
 
     def validate(self, attrs):
+        request = self.context["request"]
+        if request.user.role == User.Role.HOUSEHOLD:
+            try:
+                attrs["household"] = request.user.household
+            except Household.DoesNotExist:
+                raise serializers.ValidationError(
+                    {"household": "Your household account has not been provisioned."}
+                ) from None
+        elif not self.instance and "household" not in attrs:
+            raise serializers.ValidationError({"household": "This field is required."})
+
         values = {
             "household": attrs.get("household", getattr(self.instance, "household", None)),
             "serial_number": attrs.get(
@@ -127,12 +135,15 @@ class CylinderSerializer(serializers.ModelSerializer):
 
 
 class SensorSerializer(serializers.ModelSerializer):
-    cylinder_serial_number = serializers.CharField(source="cylinder.serial_number", read_only=True)
+    cylinder_serial_number = serializers.CharField(
+        source="cylinder.serial_number", read_only=True, allow_null=True
+    )
 
     class Meta:
         model = Sensor
         fields = (
             "id",
+            "household",
             "cylinder",
             "cylinder_serial_number",
             "esp32_id",
@@ -140,13 +151,63 @@ class SensorSerializer(serializers.ModelSerializer):
             "mac_address",
             "battery_level",
             "online_status",
+            "is_active",
             "last_seen",
             "created_at",
             "updated_at",
         )
-        read_only_fields = ("id", "created_at", "updated_at")
+        read_only_fields = ("id", "is_active", "created_at", "updated_at")
+        extra_kwargs = {
+            "household": {"required": False},
+            "cylinder": {"required": False, "allow_null": True},
+        }
+
+    def validate_household(self, household):
+        user = self.context["request"].user
+        if user.role == User.Role.HOUSEHOLD:
+            try:
+                return user.household
+            except Household.DoesNotExist:
+                raise serializers.ValidationError(
+                    "Your household account has not been provisioned."
+                ) from None
+        return household
+
+    def validate_cylinder(self, cylinder):
+        if cylinder is None:
+            return None
+        user = self.context["request"].user
+        if user.role == User.Role.HOUSEHOLD and cylinder.household.owner_id != user.id:
+            raise serializers.ValidationError(
+                "You can only connect sensors to cylinders in your household."
+            )
+        return cylinder
 
     def validate(self, attrs):
+        request = self.context["request"]
+        if request.user.role == User.Role.HOUSEHOLD:
+            try:
+                attrs["household"] = request.user.household
+            except Household.DoesNotExist:
+                raise serializers.ValidationError(
+                    {"household": "Your household account has not been provisioned."}
+                ) from None
+        elif not self.instance and "household" not in attrs:
+            cylinder = attrs.get("cylinder")
+            if cylinder:
+                attrs["household"] = cylinder.household
+            else:
+                raise serializers.ValidationError({"household": "This field is required."})
+        household = attrs.get("household", getattr(self.instance, "household", None))
+        cylinder = attrs.get("cylinder", getattr(self.instance, "cylinder", None))
+        if cylinder and household and cylinder.household_id != household.id:
+            raise serializers.ValidationError(
+                {"cylinder": "The device and cylinder must belong to the same household."}
+            )
+        if cylinder and cylinder.status == Cylinder.Status.RETIRED:
+            raise serializers.ValidationError(
+                {"cylinder": "A retired cylinder cannot receive a device."}
+            )
         if self.instance is None:
             candidate = Sensor(**attrs)
             validate_model(candidate)
@@ -163,3 +224,31 @@ class SensorSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         return create_sensor(**validated_data)
+
+
+class SensorConnectionSerializer(serializers.Serializer):
+    cylinder = serializers.PrimaryKeyRelatedField(queryset=Cylinder.objects.all())
+
+
+class CylinderReplacementSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Cylinder
+        fields = (
+            "serial_number",
+            "capacity",
+            "empty_weight",
+            "current_weight",
+            "installation_date",
+        )
+
+    def validate(self, attrs):
+        candidate = Cylinder(
+            household=self.context["cylinder"].household,
+            status=Cylinder.Status.ACTIVE,
+            **attrs,
+        )
+        try:
+            candidate.full_clean(exclude=("gas_percentage",))
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(exc.message_dict) from exc
+        return attrs

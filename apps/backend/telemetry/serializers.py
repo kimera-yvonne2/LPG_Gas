@@ -8,7 +8,7 @@ from telemetry.services import create_reading
 class ReadingSerializer(serializers.ModelSerializer):
     esp32_id = serializers.CharField(source="sensor.esp32_id", read_only=True)
     cylinder_serial_number = serializers.CharField(
-        source="sensor.cylinder.serial_number", read_only=True
+        source="cylinder.serial_number", read_only=True
     )
 
     class Meta:
@@ -16,6 +16,7 @@ class ReadingSerializer(serializers.ModelSerializer):
         fields = (
             "id",
             "sensor",
+            "cylinder",
             "esp32_id",
             "cylinder_serial_number",
             "timestamp",
@@ -23,11 +24,24 @@ class ReadingSerializer(serializers.ModelSerializer):
             "gas_percentage",
             "temperature",
             "signal_strength",
+            "gas_leak_detected",
             "created_at",
         )
-        read_only_fields = ("id", "gas_percentage", "created_at")
+        read_only_fields = ("id", "cylinder", "gas_percentage", "created_at")
 
     def validate(self, attrs):
+        sensor = attrs.get("sensor")
+        if not sensor or not sensor.is_active:
+            raise serializers.ValidationError({"sensor": "This device is not active."})
+        if sensor.cylinder_id is None:
+            raise serializers.ValidationError(
+                {"sensor": "Connect the device to a cylinder before sending readings."}
+            )
+        if sensor.cylinder.status == sensor.cylinder.Status.RETIRED:
+            raise serializers.ValidationError(
+                {"sensor": "The connected cylinder has been retired."}
+            )
+        attrs["cylinder"] = sensor.cylinder
         candidate = Reading(**attrs)
         candidate.gas_percentage = candidate.calculate_gas_percentage()
         try:

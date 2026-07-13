@@ -6,7 +6,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from accounts.models import User
-from accounts.services import register_household
+from accounts.services import create_managed_user, ensure_household, register_household
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -22,7 +22,7 @@ class UserSerializer(serializers.ModelSerializer):
             "is_active",
             "date_joined",
         )
-        read_only_fields = ("id", "email_verified", "date_joined")
+        read_only_fields = ("id", "role", "email_verified", "is_active", "date_joined")
 
 
 class AdminUserWriteSerializer(UserSerializer):
@@ -30,6 +30,7 @@ class AdminUserWriteSerializer(UserSerializer):
 
     class Meta(UserSerializer.Meta):
         fields = UserSerializer.Meta.fields + ("password",)
+        read_only_fields = ("id", "email_verified", "date_joined")
 
     def validate_password(self, value):
         password_validation.validate_password(value)
@@ -41,11 +42,12 @@ class AdminUserWriteSerializer(UserSerializer):
             raise serializers.ValidationError({"password": "This field is required."})
         # Accounts provisioned by an authenticated administrator can sign in immediately.
         validated_data["email_verified"] = True
-        return User.objects.create_user(password=password, **validated_data)
+        return create_managed_user(password=password, **validated_data)
 
     def update(self, instance, validated_data):
         password = validated_data.pop("password", None)
         instance = super().update(instance, validated_data)
+        ensure_household(instance)
         if password:
             instance.set_password(password)
             instance.save(update_fields=["password"])

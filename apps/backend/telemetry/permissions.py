@@ -21,7 +21,7 @@ class ReadingPermission(BasePermission):
         if request.user.role == User.Role.HOUSEHOLD:
             return (
                 request.method in SAFE_METHODS
-                and obj.sensor.cylinder.household.owner_id == request.user.id
+                and obj.cylinder.household.owner_id == request.user.id
             )
         if request.user.role == User.Role.TECHNICIAN:
             return request.method in SAFE_METHODS or request.method == "POST"

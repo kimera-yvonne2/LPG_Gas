@@ -25,7 +25,7 @@ class ReadingViewSet(
     permission_classes = (ReadingPermission,)
     filter_backends = (DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter)
     filterset_class = ReadingFilter
-    search_fields = ("sensor__esp32_id", "sensor__cylinder__serial_number")
+    search_fields = ("sensor__esp32_id", "cylinder__serial_number")
     ordering_fields = ("timestamp", "weight", "gas_percentage", "temperature", "signal_strength")
     ordering = ("-timestamp",)
 

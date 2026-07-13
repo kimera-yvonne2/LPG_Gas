@@ -9,6 +9,7 @@ from rest_framework.test import APIClient
 from accounts.models import User
 from devices.models import Cylinder, Household, Sensor
 from refills.models import RefillRequest
+from telemetry.models import Reading
 
 pytestmark = pytest.mark.django_db
 
@@ -52,27 +53,17 @@ def technician():
 
 
 @pytest.fixture
-def service_provider():
-    return User.objects.create_user(
-        email="provider-assets@example.com",
-        username="provider-assets",
+def admin_user():
+    return User.objects.create_superuser(
+        email="admin-assets@example.com",
+        username="admin-assets",
         password="Strong-Pass-123!",
-        role=User.Role.TECHNICIAN,
-        email_verified=True,
     )
 
 
 @pytest.fixture
 def household(household_user):
-    return Household.objects.create(
-        owner=household_user,
-        name="Kampala Home",
-        email="contact@example.com",
-        phone="+256700000001",
-        address="Ntinda, Kampala",
-        number_of_people=4,
-        usage_type=Household.UsageType.DOMESTIC,
-    )
+    return Household.objects.create(owner=household_user)
 
 
 @pytest.fixture
@@ -96,14 +87,7 @@ def test_household_user_can_create_own_household_without_owner_id(api_client, ho
     authenticate(api_client, household_user)
     response = api_client.post(
         reverse("v1:devices:household-list"),
-        {
-            "name": "My Home",
-            "email": "my-home@example.com",
-            "phone": "+256700000002",
-            "address": "Mukono",
-            "number_of_people": 5,
-            "usage_type": Household.UsageType.DOMESTIC,
-        },
+        {},
         format="json",
     )
     assert response.status_code == 201
@@ -111,15 +95,7 @@ def test_household_user_can_create_own_household_without_owner_id(api_client, ho
 
 
 def test_household_list_is_paginated_and_owner_scoped(api_client, household, other_household_user):
-    Household.objects.create(
-        owner=other_household_user,
-        name="Other Home",
-        email="other-home@example.com",
-        phone="+256700000003",
-        address="Entebbe",
-        number_of_people=2,
-        usage_type=Household.UsageType.DOMESTIC,
-    )
+    Household.objects.create(owner=other_household_user)
     authenticate(api_client, household.owner)
     response = api_client.get(reverse("v1:devices:household-list"))
     assert response.status_code == 200
@@ -150,7 +126,6 @@ def test_cylinder_api_rejects_invalid_weight(api_client, household):
     response = api_client.post(
         reverse("v1:devices:cylinder-list"),
         {
-            "household": household.id,
             "serial_number": "CYL-BAD",
             "capacity": "12.000",
             "empty_weight": "8.000",
@@ -162,6 +137,72 @@ def test_cylinder_api_rejects_invalid_weight(api_client, household):
     )
     assert response.status_code == 400
     assert "current_weight" in response.data["detail"]
+
+
+def test_household_cylinder_is_automatically_assigned_without_household_id(
+    api_client, household
+):
+    authenticate(api_client, household.owner)
+
+    response = api_client.post(
+        reverse("v1:devices:cylinder-list"),
+        {
+            "serial_number": "CYL-AUTO-HOUSEHOLD",
+            "capacity": "12.000",
+            "empty_weight": "8.000",
+            "current_weight": "14.000",
+            "installation_date": str(timezone.localdate()),
+            "status": Cylinder.Status.ACTIVE,
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201
+    assert response.data["household"] == household.id
+
+
+def test_household_cannot_override_automatic_cylinder_household(
+    api_client, household, other_household_user
+):
+    other_household = Household.objects.create(owner=other_household_user)
+    authenticate(api_client, household.owner)
+
+    response = api_client.post(
+        reverse("v1:devices:cylinder-list"),
+        {
+            "household": other_household.id,
+            "serial_number": "CYL-IGNORE-HOUSEHOLD",
+            "capacity": "12.000",
+            "empty_weight": "8.000",
+            "current_weight": "14.000",
+            "installation_date": str(timezone.localdate()),
+            "status": Cylinder.Status.ACTIVE,
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201
+    assert response.data["household"] == household.id
+
+
+def test_admin_cylinder_creation_still_requires_household(api_client, admin_user):
+    authenticate(api_client, admin_user)
+
+    response = api_client.post(
+        reverse("v1:devices:cylinder-list"),
+        {
+            "serial_number": "CYL-ADMIN-NO-HOUSEHOLD",
+            "capacity": "12.000",
+            "empty_weight": "8.000",
+            "current_weight": "14.000",
+            "installation_date": str(timezone.localdate()),
+            "status": Cylinder.Status.ACTIVE,
+        },
+        format="json",
+    )
+
+    assert response.status_code == 400
+    assert "household" in response.data["detail"]
 
 
 def test_household_cannot_access_another_households_cylinder(
@@ -186,6 +227,7 @@ def test_technician_only_sees_cylinders_for_the_requested_refill_request_context
     refill_request = RefillRequest.objects.create(
         household=cylinder.household,
         cylinder=cylinder,
+        assigned_technician=user,
         source=RefillRequest.Source.MANUAL,
     )
     authenticate(api_client, user)
@@ -196,6 +238,54 @@ def test_technician_only_sees_cylinders_for_the_requested_refill_request_context
     assert response.status_code == 200
     assert response.data["count"] == 1
     assert response.data["results"][0]["serial_number"] == cylinder.serial_number
+
+
+def test_technician_cannot_use_another_technicians_refill_context(
+    api_client, cylinder, technician
+):
+    assigned_technician = User.objects.create_user(
+        email="assigned-context@example.com",
+        username="assigned-context",
+        password="Strong-Pass-123!",
+        role=User.Role.TECHNICIAN,
+        email_verified=True,
+    )
+    refill_request = RefillRequest.objects.create(
+        household=cylinder.household,
+        cylinder=cylinder,
+        assigned_technician=assigned_technician,
+    )
+    authenticate(api_client, technician)
+
+    response = api_client.get(
+        reverse("v1:devices:cylinder-list"),
+        {"refill_request": refill_request.id},
+    )
+
+    assert response.status_code == 200
+    assert response.data["count"] == 0
+
+
+def test_technician_household_context_does_not_expose_contact_fields(
+    api_client, cylinder, technician
+):
+    refill_request = RefillRequest.objects.create(
+        household=cylinder.household,
+        cylinder=cylinder,
+        assigned_technician=technician,
+    )
+    authenticate(api_client, technician)
+
+    response = api_client.get(
+        reverse("v1:devices:household-list"),
+        {"refill_request": refill_request.id},
+    )
+
+    household_data = response.data["results"][0]
+    assert "owner_email" not in household_data
+    assert "email" not in household_data
+    assert "phone" not in household_data
+    assert "address" not in household_data
 
 
 def test_technician_cannot_create_cylinder(api_client, household, technician):
@@ -274,17 +364,142 @@ def test_household_can_create_update_and_delete_sensor_for_own_cylinder(api_clie
     assert update_response.status_code == 200
 
     delete_response = api_client.delete(reverse("v1:devices:sensor-detail", args=[sensor.id]))
-    assert delete_response.status_code == 204
+    assert delete_response.status_code == 200
+    assert delete_response.data["result"] == "deleted"
 
 
-def test_protected_cylinder_delete_returns_validation_error(api_client, cylinder, service_provider):
-    Sensor.objects.create(
+def test_household_cannot_connect_sensor_to_another_households_cylinder(
+    api_client, cylinder, other_household_user
+):
+    Household.objects.create(owner=other_household_user)
+    authenticate(api_client, other_household_user)
+    response = api_client.post(
+        reverse("v1:devices:sensor-list"),
+        {
+            "cylinder": cylinder.id,
+            "esp32_id": "ESP32-NOT-MINE",
+            "firmware_version": "1.0.0",
+            "mac_address": "AA:BB:CC:DD:EE:03",
+            "battery_level": "100.00",
+            "online_status": False,
+        },
+        format="json",
+    )
+    assert response.status_code == 400
+    assert "cylinder" in response.data["detail"]
+    assert not Sensor.objects.filter(esp32_id="ESP32-NOT-MINE").exists()
+
+
+def test_cylinder_delete_disconnects_device_when_there_is_no_history(
+    api_client, cylinder, admin_user
+):
+    sensor = Sensor.objects.create(
+        household=cylinder.household,
         cylinder=cylinder,
         esp32_id="ESP32-PROTECT",
         firmware_version="1.0.0",
         mac_address="AA:BB:CC:DD:EE:02",
         battery_level=Decimal("90.00"),
     )
-    authenticate(api_client, service_provider)
+    authenticate(api_client, admin_user)
     response = api_client.delete(reverse("v1:devices:cylinder-detail", args=[cylinder.id]))
-    assert response.status_code == 400
+    assert response.status_code == 200
+    assert response.data["result"] == "deleted"
+    assert not Cylinder.objects.filter(pk=cylinder.pk).exists()
+    sensor.refresh_from_db()
+    assert sensor.cylinder is None
+
+
+def test_used_cylinder_is_retired_and_hidden_instead_of_destroyed(api_client, cylinder):
+    sensor = Sensor.objects.create(
+        household=cylinder.household,
+        cylinder=cylinder,
+        esp32_id="ESP32-HISTORY",
+        firmware_version="1.0.0",
+        mac_address="AA:BB:CC:DD:EE:20",
+        battery_level=Decimal("90.00"),
+    )
+    Reading.objects.create(
+        sensor=sensor,
+        cylinder=cylinder,
+        weight=Decimal("14.000"),
+        temperature=Decimal("25.00"),
+        signal_strength=-60,
+    )
+    authenticate(api_client, cylinder.household.owner)
+
+    response = api_client.delete(reverse("v1:devices:cylinder-detail", args=[cylinder.id]))
+
+    assert response.status_code == 200
+    assert response.data["result"] == "retired"
+    cylinder.refresh_from_db()
+    sensor.refresh_from_db()
+    assert cylinder.status == Cylinder.Status.RETIRED
+    assert sensor.cylinder is None
+    assert api_client.get(reverse("v1:devices:cylinder-list")).data["count"] == 0
+
+
+def test_replacing_cylinder_moves_device_and_preserves_reading_snapshot(api_client, cylinder):
+    sensor = Sensor.objects.create(
+        household=cylinder.household,
+        cylinder=cylinder,
+        esp32_id="ESP32-REPLACE",
+        firmware_version="1.0.0",
+        mac_address="AA:BB:CC:DD:EE:21",
+        battery_level=Decimal("90.00"),
+    )
+    reading = Reading.objects.create(
+        sensor=sensor,
+        cylinder=cylinder,
+        weight=Decimal("14.000"),
+        temperature=Decimal("25.00"),
+        signal_strength=-60,
+    )
+    authenticate(api_client, cylinder.household.owner)
+
+    response = api_client.post(
+        reverse("v1:devices:cylinder-replace", args=[cylinder.id]),
+        {
+            "serial_number": "CYL-REPLACEMENT",
+            "capacity": "12.000",
+            "empty_weight": "8.000",
+            "current_weight": "20.000",
+            "installation_date": str(timezone.localdate()),
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201
+    replacement = Cylinder.objects.get(pk=response.data["id"])
+    cylinder.refresh_from_db()
+    sensor.refresh_from_db()
+    reading.refresh_from_db()
+    assert cylinder.status == Cylinder.Status.RETIRED
+    assert sensor.cylinder_id == replacement.id
+    assert reading.cylinder_id == cylinder.id
+
+
+def test_household_can_disconnect_and_reconnect_device(api_client, cylinder):
+    sensor = Sensor.objects.create(
+        household=cylinder.household,
+        cylinder=cylinder,
+        esp32_id="ESP32-MOVE",
+        firmware_version="1.0.0",
+        mac_address="AA:BB:CC:DD:EE:22",
+        battery_level=Decimal("90.00"),
+    )
+    authenticate(api_client, cylinder.household.owner)
+
+    disconnect = api_client.post(
+        reverse("v1:devices:sensor-disconnect", args=[sensor.id]), {}, format="json"
+    )
+    connect = api_client.post(
+        reverse("v1:devices:sensor-connect", args=[sensor.id]),
+        {"cylinder": cylinder.id},
+        format="json",
+    )
+
+    assert disconnect.status_code == 200
+    assert disconnect.data["cylinder"] is None
+    assert connect.status_code == 200
+    assert connect.data["cylinder"] == cylinder.id

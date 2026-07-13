@@ -8,6 +8,7 @@ import {
   Menu,
   Settings,
   ShieldCheck,
+  Truck,
   UserRound,
   Users,
   X,
@@ -20,7 +21,8 @@ import { useAuth, type Role } from "@/lib/auth";
 const navigation: { href: string; label: string; icon: typeof Gauge; roles: Role[] }[] = [
   { href: "/", label: "Dashboard", icon: Gauge, roles: ["admin", "technician", "household"] },
   { href: "/analytics", label: "Analytics", icon: BarChart3, roles: ["admin", "household"] },
-  { href: "/cylinders", label: "Cylinders", icon: ShieldCheck, roles: ["admin", "technician", "household"] },
+  { href: "/cylinders", label: "Cylinders & Devices", icon: ShieldCheck, roles: ["admin", "technician", "household"] },
+  { href: "/refills", label: "Refills", icon: Truck, roles: ["household"] },
   { href: "/alerts", label: "Alerts", icon: Bell, roles: ["admin", "technician", "household"] },
   { href: "/users", label: "User Management", icon: Users, roles: ["admin"] },
   { href: "/settings", label: "Settings", icon: Settings, roles: ["admin", "technician", "household"] },
