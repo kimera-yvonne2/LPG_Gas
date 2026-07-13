@@ -5,11 +5,12 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
 
-from devices.models import Sensor
+from devices.models import Cylinder, Sensor
 
 
 class Reading(models.Model):
     sensor = models.ForeignKey(Sensor, on_delete=models.PROTECT, related_name="readings")
+    cylinder = models.ForeignKey(Cylinder, on_delete=models.PROTECT, related_name="readings")
     timestamp = models.DateTimeField(default=timezone.now)
     weight = models.DecimalField(
         max_digits=8,
@@ -25,13 +26,17 @@ class Reading(models.Model):
     temperature = models.DecimalField(
         max_digits=5,
         decimal_places=2,
-        validators=[MinValueValidator(Decimal("-40")), MaxValueValidator(Decimal("125"))],
+        validators=[
+            MinValueValidator(Decimal("-40")),
+            MaxValueValidator(Decimal("125")),
+        ],
         help_text="Sensor temperature in degrees Celsius.",
     )
     signal_strength = models.SmallIntegerField(
         validators=[MinValueValidator(-120), MaxValueValidator(0)],
         help_text="Wi-Fi RSSI in dBm.",
     )
+    gas_leak_detected = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -50,6 +55,8 @@ class Reading(models.Model):
         return f"{self.sensor.esp32_id} at {self.timestamp.isoformat()}"
 
     def save(self, *args, **kwargs):
+        if not self.cylinder_id:
+            raise ValidationError({"cylinder": "A reading must belong to a cylinder."})
         self.gas_percentage = self.calculate_gas_percentage()
         self.full_clean()
         super().save(*args, **kwargs)
@@ -58,7 +65,12 @@ class Reading(models.Model):
         if self.timestamp and self.timestamp > timezone.now():
             raise ValidationError({"timestamp": "Reading timestamp cannot be in the future."})
 
-        cylinder = self.sensor.cylinder if self.sensor_id else None
+        cylinder = self.cylinder if self.cylinder_id else None
+        if self.sensor_id and cylinder:
+            if self.sensor.household_id != cylinder.household_id:
+                raise ValidationError(
+                    {"cylinder": "The reading cylinder must belong to the device household."}
+                )
         if cylinder and self.weight is not None:
             if self.weight < cylinder.empty_weight:
                 raise ValidationError(
@@ -69,7 +81,7 @@ class Reading(models.Model):
                 raise ValidationError({"weight": "Reading weight exceeds the cylinder capacity."})
 
     def calculate_gas_percentage(self):
-        cylinder = self.sensor.cylinder
+        cylinder = self.cylinder
         gas_weight = max(self.weight - cylinder.empty_weight, Decimal("0"))
         percentage = (gas_weight / cylinder.capacity) * Decimal("100")
         return min(percentage, Decimal("100")).quantize(Decimal("0.01"))

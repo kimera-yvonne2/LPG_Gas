@@ -8,31 +8,19 @@ from django.utils import timezone
 
 
 class Household(models.Model):
-    class UsageType(models.TextChoices):
-        DOMESTIC = "domestic", "Domestic"
-        COMMERCIAL = "commercial", "Commercial"
-        INSTITUTIONAL = "institutional", "Institutional"
-
     owner = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
         related_name="household",
     )
-    name = models.CharField(max_length=150)
-    email = models.EmailField()
-    phone = models.CharField(max_length=20)
-    address = models.TextField()
-    number_of_people = models.PositiveSmallIntegerField(validators=[MinValueValidator(1)])
-    usage_type = models.CharField(max_length=20, choices=UsageType.choices)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ("name",)
-        indexes = [models.Index(fields=("usage_type",), name="household_usage_idx")]
+        ordering = ("owner__username",)
 
     def __str__(self):
-        return self.name
+        return self.owner.username
 
 
 class Cylinder(models.Model):
@@ -41,6 +29,7 @@ class Cylinder(models.Model):
         EMPTY = "empty", "Empty"
         DISCONNECTED = "disconnected", "Disconnected"
         MAINTENANCE = "maintenance", "Maintenance"
+        RETIRED = "retired", "Retired"
 
     household = models.ForeignKey(Household, on_delete=models.PROTECT, related_name="cylinders")
     serial_number = models.CharField(max_length=100, unique=True)
@@ -114,7 +103,14 @@ class Sensor(models.Model):
         message="Enter a MAC address in AA:BB:CC:DD:EE:FF format.",
     )
 
-    cylinder = models.OneToOneField(Cylinder, on_delete=models.PROTECT, related_name="sensor")
+    household = models.ForeignKey(Household, on_delete=models.PROTECT, related_name="sensors")
+    cylinder = models.OneToOneField(
+        Cylinder,
+        on_delete=models.SET_NULL,
+        related_name="sensor",
+        blank=True,
+        null=True,
+    )
     esp32_id = models.CharField(max_length=100, unique=True)
     firmware_version = models.CharField(max_length=50)
     mac_address = models.CharField(max_length=17, unique=True, validators=[mac_address_validator])
@@ -124,6 +120,7 @@ class Sensor(models.Model):
         validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("100"))],
     )
     online_status = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
     last_seen = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -143,5 +140,13 @@ class Sensor(models.Model):
         super().save(*args, **kwargs)
 
     def clean(self):
+        errors = {}
         if self.last_seen and self.last_seen > timezone.now():
-            raise ValidationError({"last_seen": "Last seen cannot be in the future."})
+            errors["last_seen"] = "Last seen cannot be in the future."
+        if self.cylinder_id and self.household_id:
+            if self.cylinder.household_id != self.household_id:
+                errors["cylinder"] = "The device and cylinder must belong to the same household."
+            if self.cylinder.status == Cylinder.Status.RETIRED:
+                errors["cylinder"] = "A device cannot be connected to a retired cylinder."
+        if errors:
+            raise ValidationError(errors)

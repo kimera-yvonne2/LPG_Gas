@@ -4,12 +4,9 @@ from devices.models import Cylinder, Household, Sensor
 
 
 class HouseholdFilter(django_filters.FilterSet):
-    people_min = django_filters.NumberFilter(field_name="number_of_people", lookup_expr="gte")
-    people_max = django_filters.NumberFilter(field_name="number_of_people", lookup_expr="lte")
-
     class Meta:
         model = Household
-        fields = ("usage_type", "people_min", "people_max")
+        fields = ()
 
 
 class CylinderFilter(django_filters.FilterSet):
@@ -40,4 +37,12 @@ class SensorFilter(django_filters.FilterSet):
 
     class Meta:
         model = Sensor
-        fields = ("cylinder", "online_status", "firmware_version", "battery_min", "last_seen_after")
+        fields = (
+            "household",
+            "cylinder",
+            "is_active",
+            "online_status",
+            "firmware_version",
+            "battery_min",
+            "last_seen_after",
+        )

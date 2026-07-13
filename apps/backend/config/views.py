@@ -13,7 +13,10 @@ class HealthView(APIView):
         summary="Check API liveness",
         responses=inline_serializer(
             name="HealthResponse",
-            fields={"status": serializers.CharField(), "service": serializers.CharField()},
+            fields={
+                "status": serializers.CharField(),
+                "service": serializers.CharField(),
+            },
         ),
     )
     def get(self, request):

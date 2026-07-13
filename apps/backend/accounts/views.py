@@ -30,6 +30,7 @@ from accounts.serializers import (
 )
 from accounts.services import (
     can_resend_verification,
+    delete_household_account,
     send_password_reset_email,
     send_verification_email,
     verify_email,
@@ -227,9 +228,22 @@ class UserViewSet(
             return [IsAuthenticated()]
         return super().get_permissions()
 
-    @extend_schema(tags=["Users"], summary="Get the authenticated user", responses=UserSerializer)
-    @action(detail=False, methods=["get", "patch"])
+    @extend_schema(
+        tags=["Users"],
+        summary="Manage the authenticated user",
+        responses=UserSerializer,
+    )
+    @action(detail=False, methods=["get", "patch", "delete"])
     def me(self, request):
+        if request.method == "DELETE":
+            try:
+                delete_household_account(request.user)
+            except PermissionError as exc:
+                return Response(
+                    {"detail": str(exc)},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            return Response(status=status.HTTP_204_NO_CONTENT)
         if request.method == "PATCH":
             serializer = UserSerializer(request.user, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)

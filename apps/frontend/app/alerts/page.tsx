@@ -10,6 +10,7 @@ export default function AlertsPage() {
   const query = useQuery({ queryKey: ["readings", "alerts"], queryFn: async () => (await api.get<ApiList<Reading>>("/readings/?ordering=-timestamp&page_size=100")).data });
   const alerts = rows(query.data).flatMap(reading => {
     const items: { key: string; title: string; text: string; timestamp: string; severity: "critical" | "warning" }[] = [];
+    if (reading.gas_leak_detected) items.push({ key: `${reading.id}-leak`, title: "Gas leak detected", text: `${reading.cylinder_serial_number} reported a gas leak.`, timestamp: reading.timestamp, severity: "critical" });
     if (Number(reading.temperature) >= 60) items.push({ key: `${reading.id}-temperature`, title: "High sensor temperature", text: `${reading.cylinder_serial_number} recorded ${reading.temperature}°C.`, timestamp: reading.timestamp, severity: "critical" });
     if (Number(reading.gas_percentage) <= 15) items.push({ key: `${reading.id}-gas`, title: "Low gas level", text: `${reading.cylinder_serial_number} has ${reading.gas_percentage}% remaining.`, timestamp: reading.timestamp, severity: Number(reading.gas_percentage) <= 5 ? "critical" : "warning" });
     return items;

@@ -15,6 +15,8 @@ class ReadingFilter(django_filters.FilterSet):
         model = Reading
         fields = (
             "sensor",
+            "cylinder",
+            "gas_leak_detected",
             "timestamp_after",
             "timestamp_before",
             "weight_min",

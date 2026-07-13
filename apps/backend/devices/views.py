@@ -2,16 +2,39 @@ from django.db.models.deletion import ProtectedError
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import filters, serializers, viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
 
 from devices.filters import CylinderFilter, HouseholdFilter, SensorFilter
 from devices.models import Cylinder, Household, Sensor
-from devices.permissions import CylinderPermission, HouseholdPermission, SensorPermission
+from devices.permissions import (
+    CylinderPermission,
+    HouseholdPermission,
+    SensorPermission,
+)
 from devices.selectors import cylinder_list_for, household_list_for, sensor_list_for
-from devices.serializers import CylinderSerializer, HouseholdSerializer, SensorSerializer
+from devices.serializers import (
+    CylinderReplacementSerializer,
+    CylinderSerializer,
+    HouseholdSerializer,
+    SensorConnectionSerializer,
+    SensorSerializer,
+)
+from devices.services import (
+    connect_sensor,
+    disconnect_sensor,
+    remove_cylinder,
+    remove_sensor,
+    replace_cylinder,
+)
 
 
 class AssetViewSet(viewsets.ModelViewSet):
-    filter_backends = (DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter)
+    filter_backends = (
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    )
 
     def perform_destroy(self, instance):
         try:
@@ -35,9 +58,9 @@ class HouseholdViewSet(AssetViewSet):
     serializer_class = HouseholdSerializer
     permission_classes = (HouseholdPermission,)
     filterset_class = HouseholdFilter
-    search_fields = ("name", "email", "phone", "address", "owner__email")
-    ordering_fields = ("name", "number_of_people", "created_at")
-    ordering = ("name",)
+    search_fields = ("owner__username", "owner__email", "owner__phone_number")
+    ordering_fields = ("created_at", "updated_at")
+    ordering = ("owner__username",)
 
     def get_queryset(self):
         return household_list_for(self.request.user, self.request)
@@ -56,12 +79,40 @@ class CylinderViewSet(AssetViewSet):
     serializer_class = CylinderSerializer
     permission_classes = (CylinderPermission,)
     filterset_class = CylinderFilter
-    search_fields = ("serial_number", "household__name", "household__email")
-    ordering_fields = ("serial_number", "capacity", "gas_percentage", "installation_date")
+    search_fields = (
+        "serial_number",
+        "household__owner__username",
+        "household__owner__email",
+    )
+    ordering_fields = (
+        "serial_number",
+        "capacity",
+        "gas_percentage",
+        "installation_date",
+    )
     ordering = ("serial_number",)
 
     def get_queryset(self):
         return cylinder_list_for(self.request.user, self.request)
+
+    def destroy(self, request, *args, **kwargs):
+        result = remove_cylinder(cylinder=self.get_object(), actor=request.user)
+        return Response({"result": result})
+
+    @action(detail=True, methods=("post",))
+    def replace(self, request, pk=None):
+        cylinder = self.get_object()
+        serializer = CylinderReplacementSerializer(
+            data=request.data,
+            context={"request": request, "cylinder": cylinder},
+        )
+        serializer.is_valid(raise_exception=True)
+        replacement = replace_cylinder(
+            cylinder=cylinder,
+            actor=request.user,
+            **serializer.validated_data,
+        )
+        return Response(self.get_serializer(replacement).data, status=201)
 
 
 @extend_schema_view(
@@ -77,9 +128,34 @@ class SensorViewSet(AssetViewSet):
     serializer_class = SensorSerializer
     permission_classes = (SensorPermission,)
     filterset_class = SensorFilter
-    search_fields = ("esp32_id", "mac_address", "firmware_version", "cylinder__serial_number")
+    search_fields = (
+        "esp32_id",
+        "mac_address",
+        "firmware_version",
+        "cylinder__serial_number",
+    )
     ordering_fields = ("esp32_id", "battery_level", "last_seen", "created_at")
     ordering = ("esp32_id",)
 
     def get_queryset(self):
         return sensor_list_for(self.request.user, self.request)
+
+    def destroy(self, request, *args, **kwargs):
+        result = remove_sensor(sensor=self.get_object(), actor=request.user)
+        return Response({"result": result})
+
+    @action(detail=True, methods=("post",))
+    def connect(self, request, pk=None):
+        serializer = SensorConnectionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        sensor = connect_sensor(
+            sensor=self.get_object(),
+            cylinder=serializer.validated_data["cylinder"],
+            actor=request.user,
+        )
+        return Response(self.get_serializer(sensor).data)
+
+    @action(detail=True, methods=("post",))
+    def disconnect(self, request, pk=None):
+        sensor = disconnect_sensor(sensor=self.get_object(), actor=request.user)
+        return Response(self.get_serializer(sensor).data)

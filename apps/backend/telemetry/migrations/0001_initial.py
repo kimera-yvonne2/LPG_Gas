@@ -23,7 +23,10 @@ class Migration(migrations.Migration):
                 (
                     "id",
                     models.BigAutoField(
-                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
                     ),
                 ),
                 ("timestamp", models.DateTimeField(default=django.utils.timezone.now)),
@@ -87,7 +90,8 @@ class Migration(migrations.Migration):
                 ],
                 "constraints": [
                     models.UniqueConstraint(
-                        fields=("sensor", "timestamp"), name="unique_sensor_reading_timestamp"
+                        fields=("sensor", "timestamp"),
+                        name="unique_sensor_reading_timestamp",
                     )
                 ],
             },

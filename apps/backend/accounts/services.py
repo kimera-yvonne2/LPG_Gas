@@ -1,3 +1,5 @@
+import uuid
+
 from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
@@ -7,6 +9,22 @@ from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 
 from accounts.models import User
+
+
+def ensure_household(user: User):
+    if user.role != User.Role.HOUSEHOLD:
+        return None
+    from devices.models import Household
+
+    household, _ = Household.objects.get_or_create(owner=user)
+    return household
+
+
+@transaction.atomic
+def create_managed_user(*, password: str, **data) -> User:
+    user = User.objects.create_user(password=password, **data)
+    ensure_household(user)
+    return user
 
 
 def _api_url(path: str) -> str:
@@ -35,7 +53,36 @@ def register_household(*, email: str, username: str, password: str, phone_number
         role=User.Role.HOUSEHOLD,
         email_verified=True,
     )
+    ensure_household(user)
     return user
+
+
+@transaction.atomic
+def delete_household_account(user: User) -> None:
+    user = User.objects.select_for_update().get(pk=user.pk)
+    if user.role != User.Role.HOUSEHOLD:
+        raise PermissionError("Only household accounts can use self-service deletion.")
+    marker = uuid.uuid4().hex
+    user.email = f"deleted-{marker}@deleted.invalid"
+    user.username = f"deleted-{user.pk}-{marker[:8]}"
+    user.phone_number = ""
+    user.email_verified = False
+    user.is_active = False
+    user.is_staff = False
+    user.is_superuser = False
+    user.set_unusable_password()
+    user.save(
+        update_fields=(
+            "email",
+            "username",
+            "phone_number",
+            "email_verified",
+            "is_active",
+            "is_staff",
+            "is_superuser",
+            "password",
+        )
+    )
 
 
 def verify_email(token) -> User:

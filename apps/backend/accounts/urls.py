@@ -23,7 +23,11 @@ urlpatterns = [
     path("auth/login/", LoginView.as_view(), name="login"),
     path("auth/logout/", LogoutView.as_view(), name="logout"),
     path("auth/token/refresh/", RefreshView.as_view(), name="token-refresh"),
-    path("auth/password/reset/", PasswordResetRequestView.as_view(), name="password-reset"),
+    path(
+        "auth/password/reset/",
+        PasswordResetRequestView.as_view(),
+        name="password-reset",
+    ),
     path(
         "auth/password/reset/confirm/",
         PasswordResetConfirmView.as_view(),

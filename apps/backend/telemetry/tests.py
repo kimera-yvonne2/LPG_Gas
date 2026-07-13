@@ -32,15 +32,7 @@ def make_user(email, role):
 @pytest.fixture
 def asset_graph():
     owner = make_user("reading-owner@example.com", User.Role.HOUSEHOLD)
-    household = Household.objects.create(
-        owner=owner,
-        name="Reading Home",
-        email=owner.email,
-        phone="+256700000010",
-        address="Kampala",
-        number_of_people=3,
-        usage_type=Household.UsageType.DOMESTIC,
-    )
+    household = Household.objects.create(owner=owner)
     cylinder = Cylinder.objects.create(
         household=household,
         serial_number="CYL-READ",
@@ -50,6 +42,7 @@ def asset_graph():
         installation_date=timezone.localdate(),
     )
     sensor = Sensor.objects.create(
+        household=household,
         cylinder=cylinder,
         esp32_id="ESP32-READING",
         firmware_version="1.0.0",
@@ -73,11 +66,14 @@ def test_technician_creates_reading_and_updates_cylinder(api_client, asset_graph
             "weight": "7.500",
             "temperature": "28.50",
             "signal_strength": -55,
+            "gas_leak_detected": True,
         },
         format="json",
     )
     assert response.status_code == 201
     assert response.data["gas_percentage"] == "25.00"
+    assert response.data["cylinder"] == cylinder.id
+    assert response.data["gas_leak_detected"] is True
     cylinder.refresh_from_db()
     assert cylinder.current_weight == Decimal("7.500")
     assert cylinder.gas_percentage == Decimal("25.00")
@@ -105,6 +101,7 @@ def test_household_reads_only_owned_readings(api_client, asset_graph):
     owner, _, sensor = asset_graph
     Reading.objects.create(
         sensor=sensor,
+        cylinder=sensor.cylinder,
         timestamp=timezone.now() - timedelta(minutes=1),
         weight=Decimal("8.000"),
         temperature=Decimal("25.00"),
@@ -123,17 +120,19 @@ def test_operational_roles_only_see_readings_for_the_requested_refill_request_co
     owner, _, sensor = asset_graph
     Reading.objects.create(
         sensor=sensor,
+        cylinder=sensor.cylinder,
         timestamp=timezone.now() - timedelta(minutes=2),
         weight=Decimal("8.500"),
         temperature=Decimal("25.50"),
         signal_strength=-58,
     )
+    user = make_user("reading-context@example.com", User.Role.TECHNICIAN)
     refill_request = RefillRequest.objects.create(
         household=owner.household,
         cylinder=sensor.cylinder,
+        assigned_technician=user,
         source=RefillRequest.Source.MANUAL,
     )
-    user = make_user("reading-context@example.com", User.Role.TECHNICIAN)
     api_client.force_authenticate(user)
     response = api_client.get(
         reverse("v1:telemetry:reading-list"), {"refill_request": refill_request.id}
@@ -151,10 +150,10 @@ def test_household_cannot_create_or_modify_readings(api_client, asset_graph):
 
 
 def test_reading_filter_search_order_and_pagination(api_client, asset_graph):
-    _, _, sensor = asset_graph
-    technician = make_user("filter-tech@example.com", User.Role.TECHNICIAN)
+    owner, _, sensor = asset_graph
     old = Reading.objects.create(
         sensor=sensor,
+        cylinder=sensor.cylinder,
         timestamp=timezone.now() - timedelta(hours=2),
         weight=Decimal("7.000"),
         temperature=Decimal("24.00"),
@@ -162,15 +161,21 @@ def test_reading_filter_search_order_and_pagination(api_client, asset_graph):
     )
     recent = Reading.objects.create(
         sensor=sensor,
+        cylinder=sensor.cylinder,
         timestamp=timezone.now() - timedelta(minutes=2),
         weight=Decimal("9.000"),
         temperature=Decimal("26.00"),
         signal_strength=-50,
     )
-    api_client.force_authenticate(technician)
+    api_client.force_authenticate(owner)
     response = api_client.get(
         reverse("v1:telemetry:reading-list"),
-        {"search": sensor.esp32_id, "weight_min": 8, "ordering": "-weight", "page_size": 1},
+        {
+            "search": sensor.esp32_id,
+            "weight_min": 8,
+            "ordering": "-weight",
+            "page_size": 1,
+        },
     )
     assert response.status_code == 200
     assert response.data["count"] == 1
@@ -184,6 +189,7 @@ def test_duplicate_sensor_timestamp_is_rejected(api_client, asset_graph):
     timestamp = timezone.now() - timedelta(minutes=1)
     Reading.objects.create(
         sensor=sensor,
+        cylinder=sensor.cylinder,
         timestamp=timestamp,
         weight=Decimal("8.000"),
         temperature=Decimal("25.00"),
@@ -202,3 +208,24 @@ def test_duplicate_sensor_timestamp_is_rejected(api_client, asset_graph):
         format="json",
     )
     assert response.status_code == 400
+
+
+def test_disconnected_device_cannot_send_reading(api_client, asset_graph):
+    _, _, sensor = asset_graph
+    technician = make_user("disconnected-tech@example.com", User.Role.TECHNICIAN)
+    sensor.cylinder = None
+    sensor.save(update_fields=("cylinder",))
+    api_client.force_authenticate(technician)
+    response = api_client.post(
+        reverse("v1:telemetry:reading-list"),
+        {
+            "sensor": sensor.id,
+            "weight": "8.000",
+            "temperature": "25.00",
+            "signal_strength": -60,
+            "gas_leak_detected": False,
+        },
+        format="json",
+    )
+    assert response.status_code == 400
+    assert "sensor" in response.data["detail"]

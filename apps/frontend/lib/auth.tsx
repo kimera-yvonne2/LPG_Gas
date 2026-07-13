@@ -12,6 +12,7 @@ type AuthContextValue = {
   login: (email: string, password: string) => Promise<User>;
   register: (input: { email: string; username: string; phone_number: string; password: string; password_confirm: string }) => Promise<void>;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   updateProfile: (input: { username: string; phone_number: string }) => Promise<User>;
 };
 
@@ -52,7 +53,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const updateProfile = async (input: { username: string; phone_number: string }) => {
     const { data } = await api.patch<User>("/users/me/", input); setUser(data); return data;
   };
-  const value = { user, loading, login, register, logout, updateProfile };
+  const deleteAccount = async () => {
+    await api.delete("/users/me/");
+    clear();
+  };
+  const value = { user, loading, login, register, logout, deleteAccount, updateProfile };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

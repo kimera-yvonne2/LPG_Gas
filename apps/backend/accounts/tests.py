@@ -7,11 +7,8 @@ from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import AccessToken
 
 from accounts.models import User
-from accounts.permissions import (
-    IsAdminRole,
-    IsHousehold,
-    IsTechnician,
-)
+from accounts.permissions import IsAdminRole, IsHousehold, IsTechnician
+from devices.models import Household
 
 pytestmark = pytest.mark.django_db
 
@@ -72,6 +69,7 @@ def test_registration_creates_active_household_without_verification_email(api_cl
     assert user.role == User.Role.HOUSEHOLD
     assert user.email_verified
     assert user.check_password("Stronger-Pass-123!")
+    assert user.household.owner_id == user.id
     assert len(mailoutbox) == 0
 
 
@@ -125,7 +123,9 @@ def test_login_returns_role_claim_and_refresh_rotates(api_client, household):
     assert access["email_verified"] is True
 
     response = api_client.post(
-        reverse("v1:accounts:token-refresh"), {"refresh": tokens["refresh"]}, format="json"
+        reverse("v1:accounts:token-refresh"),
+        {"refresh": tokens["refresh"]},
+        format="json",
     )
     assert response.status_code == 200
     assert response.data["refresh"] != tokens["refresh"]
@@ -141,7 +141,9 @@ def test_logout_blacklists_refresh_token(api_client, household):
 
     api_client.credentials()
     response = api_client.post(
-        reverse("v1:accounts:token-refresh"), {"refresh": tokens["refresh"]}, format="json"
+        reverse("v1:accounts:token-refresh"),
+        {"refresh": tokens["refresh"]},
+        format="json",
     )
     assert response.status_code == 401
 
@@ -226,6 +228,68 @@ def test_admin_can_create_technician_and_list_users(api_client, admin_user):
     assert response.status_code == 201
     assert response.data["role"] == User.Role.TECHNICIAN
     assert api_client.get(reverse("v1:accounts:user-list")).status_code == 200
+
+
+def test_admin_created_household_account_is_automatically_provisioned(api_client, admin_user):
+    tokens = login(api_client, admin_user)
+    api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")
+
+    response = api_client.post(
+        reverse("v1:accounts:user-list"),
+        {
+            "email": "managed-home@example.com",
+            "username": "managed-home",
+            "password": "Stronger-Pass-123!",
+            "role": User.Role.HOUSEHOLD,
+            "phone_number": "",
+            "is_active": True,
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201
+    user = User.objects.get(email="managed-home@example.com")
+    assert user.household.owner_id == user.id
+
+
+def test_household_can_delete_account_and_reuse_original_email(api_client, household):
+    Household.objects.create(owner=household)
+    original_email = household.email
+    original_username = household.username
+    api_client.force_authenticate(household)
+
+    response = api_client.delete(reverse("v1:accounts:user-me"))
+
+    assert response.status_code == 204
+    household.refresh_from_db()
+    assert not household.is_active
+    assert household.email != original_email
+    assert household.username != original_username
+    assert not household.has_usable_password()
+    assert Household.objects.filter(owner=household).exists()
+
+    api_client.force_authenticate(user=None)
+    registration = api_client.post(
+        reverse("v1:accounts:register"),
+        {
+            "email": original_email,
+            "username": original_username,
+            "password": "Stronger-Pass-123!",
+            "password_confirm": "Stronger-Pass-123!",
+        },
+        format="json",
+    )
+    assert registration.status_code == 201
+
+
+def test_non_household_cannot_use_self_service_account_deletion(api_client, admin_user):
+    api_client.force_authenticate(admin_user)
+
+    response = api_client.delete(reverse("v1:accounts:user-me"))
+
+    assert response.status_code == 403
+    admin_user.refresh_from_db()
+    assert admin_user.is_active
 
 
 @pytest.mark.parametrize(
