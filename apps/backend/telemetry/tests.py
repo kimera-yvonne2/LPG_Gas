@@ -11,6 +11,7 @@ from devices.models import Cylinder, Household, Sensor
 from refills.models import RefillRequest
 from telemetry.models import DepletionEstimate, Reading
 from telemetry.services import generate_depletion_estimate
+from telemetry.tasks import generate_depletion_estimate_task
 
 pytestmark = pytest.mark.django_db
 
@@ -464,3 +465,16 @@ def test_technician_cannot_access_depletion_estimates(api_client, asset_graph):
     response = api_client.get(reverse("v1:telemetry:depletion-estimate-list"))
 
     assert response.status_code == 403
+
+
+def test_depletion_task_creates_estimate(asset_graph):
+    _, cylinder, sensor = asset_graph
+    create_prediction_readings(sensor, cylinder)
+
+    estimate_id = generate_depletion_estimate_task.run(cylinder.id)
+
+    estimate = DepletionEstimate.objects.get(pk=estimate_id)
+
+    assert estimate.cylinder == cylinder
+    assert estimate.status == DepletionEstimate.Status.AVAILABLE
+    assert estimate.model_version == "1.0.0"
