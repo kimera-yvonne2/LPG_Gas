@@ -2,15 +2,15 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from accounts.views import (
-                            EmailVerificationView,
-                            LoginView,
-                            LogoutView,
-                            PasswordResetConfirmView,
-                            PasswordResetRequestView,
-                            RefreshView,
-                            RegistrationView,
-                            ResendVerificationView,
-                            UserViewSet,
+    EmailVerificationView,
+    LoginView,
+    LogoutView,
+    PasswordResetConfirmView,
+    PasswordResetRequestView,
+    RefreshView,
+    RegistrationView,
+    ResendVerificationView,
+    UserViewSet,
 )
 
 app_name = "accounts"

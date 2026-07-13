@@ -3,7 +3,12 @@ from rest_framework import serializers
 
 from accounts.models import User
 from devices.models import Cylinder, Household, Sensor
-from devices.services import create_cylinder, create_household, create_sensor, update_cylinder
+from devices.services import (
+    create_cylinder,
+    create_household,
+    create_sensor,
+    update_cylinder,
+)
 
 
 def validate_model(instance):

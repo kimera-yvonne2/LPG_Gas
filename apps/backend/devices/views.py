@@ -7,7 +7,11 @@ from rest_framework.response import Response
 
 from devices.filters import CylinderFilter, HouseholdFilter, SensorFilter
 from devices.models import Cylinder, Household, Sensor
-from devices.permissions import CylinderPermission, HouseholdPermission, SensorPermission
+from devices.permissions import (
+    CylinderPermission,
+    HouseholdPermission,
+    SensorPermission,
+)
 from devices.selectors import cylinder_list_for, household_list_for, sensor_list_for
 from devices.serializers import (
     CylinderReplacementSerializer,
