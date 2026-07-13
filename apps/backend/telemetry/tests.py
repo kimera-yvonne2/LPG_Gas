@@ -146,10 +146,7 @@ def test_household_cannot_create_or_modify_readings(api_client, asset_graph):
     owner, _, _ = asset_graph
     api_client.force_authenticate(owner)
     assert api_client.post(reverse("v1:telemetry:reading-list"), {}).status_code == 403
-    assert (
-        api_client.put(reverse("v1:telemetry:reading-detail", args=[1]), {}).status_code
-        == 403
-    )
+    assert api_client.put(reverse("v1:telemetry:reading-detail", args=[1]), {}).status_code == 403
 
 
 def test_reading_filter_search_order_and_pagination(api_client, asset_graph):

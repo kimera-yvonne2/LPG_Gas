@@ -44,9 +44,7 @@ class HouseholdSerializer(serializers.ModelSerializer):
 
     def validate_owner(self, owner):
         if owner.role != User.Role.HOUSEHOLD:
-            raise serializers.ValidationError(
-                "Household owner must have the household role."
-            )
+            raise serializers.ValidationError("Household owner must have the household role.")
         return owner
 
     def validate(self, attrs):
@@ -55,9 +53,7 @@ class HouseholdSerializer(serializers.ModelSerializer):
             attrs["owner"] = request.user
         elif not self.instance and "owner" not in attrs:
             raise serializers.ValidationError({"owner": "This field is required."})
-        candidate = Household(
-            owner=attrs.get("owner", getattr(self.instance, "owner", None))
-        )
+        candidate = Household(owner=attrs.get("owner", getattr(self.instance, "owner", None)))
         if self.instance:
             candidate.pk = self.instance.pk
         validate_model(candidate)
@@ -68,9 +64,7 @@ class HouseholdSerializer(serializers.ModelSerializer):
 
 
 class CylinderSerializer(serializers.ModelSerializer):
-    household_name = serializers.CharField(
-        source="household.owner.username", read_only=True
-    )
+    household_name = serializers.CharField(source="household.owner.username", read_only=True)
 
     class Meta:
         model = Cylinder
@@ -115,25 +109,19 @@ class CylinderSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"household": "This field is required."})
 
         values = {
-            "household": attrs.get(
-                "household", getattr(self.instance, "household", None)
-            ),
+            "household": attrs.get("household", getattr(self.instance, "household", None)),
             "serial_number": attrs.get(
                 "serial_number", getattr(self.instance, "serial_number", None)
             ),
             "capacity": attrs.get("capacity", getattr(self.instance, "capacity", None)),
-            "empty_weight": attrs.get(
-                "empty_weight", getattr(self.instance, "empty_weight", None)
-            ),
+            "empty_weight": attrs.get("empty_weight", getattr(self.instance, "empty_weight", None)),
             "current_weight": attrs.get(
                 "current_weight", getattr(self.instance, "current_weight", None)
             ),
             "installation_date": attrs.get(
                 "installation_date", getattr(self.instance, "installation_date", None)
             ),
-            "status": attrs.get(
-                "status", getattr(self.instance, "status", Cylinder.Status.ACTIVE)
-            ),
+            "status": attrs.get("status", getattr(self.instance, "status", Cylinder.Status.ACTIVE)),
         }
         candidate = Cylinder(**values)
         if self.instance:
@@ -214,16 +202,12 @@ class SensorSerializer(serializers.ModelSerializer):
             if cylinder:
                 attrs["household"] = cylinder.household
             else:
-                raise serializers.ValidationError(
-                    {"household": "This field is required."}
-                )
+                raise serializers.ValidationError({"household": "This field is required."})
         household = attrs.get("household", getattr(self.instance, "household", None))
         cylinder = attrs.get("cylinder", getattr(self.instance, "cylinder", None))
         if cylinder and household and cylinder.household_id != household.id:
             raise serializers.ValidationError(
-                {
-                    "cylinder": "The device and cylinder must belong to the same household."
-                }
+                {"cylinder": "The device and cylinder must belong to the same household."}
             )
         if cylinder and cylinder.status == Cylinder.Status.RETIRED:
             raise serializers.ValidationError(

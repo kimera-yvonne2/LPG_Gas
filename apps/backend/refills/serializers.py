@@ -53,9 +53,7 @@ class RefillRequestSerializer(serializers.ModelSerializer):
 
     def validate_assigned_technician(self, technician):
         if technician.role != User.Role.TECHNICIAN or not technician.is_active:
-            raise serializers.ValidationError(
-                "The refill provider must be an active technician."
-            )
+            raise serializers.ValidationError("The refill provider must be an active technician.")
         return technician
 
     def validate_household(self, household):
@@ -68,10 +66,7 @@ class RefillRequestSerializer(serializers.ModelSerializer):
 
     def validate_cylinder(self, cylinder):
         request = self.context["request"]
-        if (
-            request.user.role == "household"
-            and cylinder.household.owner_id != request.user.id
-        ):
+        if request.user.role == "household" and cylinder.household.owner_id != request.user.id:
             raise serializers.ValidationError(
                 "You can only request refills for your own cylinders."
             )

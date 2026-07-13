@@ -34,12 +34,8 @@ class RefillRequest(models.Model):
         blank=True,
         null=True,
     )
-    status = models.CharField(
-        max_length=20, choices=Status.choices, default=Status.PENDING
-    )
-    source = models.CharField(
-        max_length=20, choices=Source.choices, default=Source.MANUAL
-    )
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    source = models.CharField(max_length=20, choices=Source.choices, default=Source.MANUAL)
     requested_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -53,15 +49,11 @@ class RefillRequest(models.Model):
         errors = {}
         if self.cylinder_id and self.household_id:
             if self.cylinder.household_id != self.household_id:
-                errors["cylinder"] = (
-                    "The cylinder must belong to the selected household."
-                )
+                errors["cylinder"] = "The cylinder must belong to the selected household."
         if self.assigned_technician_id:
             technician = self.assigned_technician
             if technician.role != "technician" or not technician.is_active:
-                errors["assigned_technician"] = (
-                    "The refill provider must be an active technician."
-                )
+                errors["assigned_technician"] = "The refill provider must be an active technician."
         if errors:
             raise ValidationError(errors)
 
@@ -75,9 +67,7 @@ class RefillRequest(models.Model):
         }
         if status not in transitions.get(self.status, set()):
             raise ValidationError(
-                {
-                    "status": f"Cannot move a refill request from {self.status} to {status}."
-                }
+                {"status": f"Cannot move a refill request from {self.status} to {status}."}
             )
         self.status = status
         return self

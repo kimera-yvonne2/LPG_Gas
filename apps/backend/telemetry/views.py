@@ -11,12 +11,8 @@ from telemetry.serializers import ReadingSerializer
 
 @extend_schema_view(
     list=extend_schema(tags=["LPG Assets - Readings"], summary="List sensor readings"),
-    retrieve=extend_schema(
-        tags=["LPG Assets - Readings"], summary="Retrieve a sensor reading"
-    ),
-    create=extend_schema(
-        tags=["LPG Assets - Readings"], summary="Create a sensor reading"
-    ),
+    retrieve=extend_schema(tags=["LPG Assets - Readings"], summary="Retrieve a sensor reading"),
+    create=extend_schema(tags=["LPG Assets - Readings"], summary="Create a sensor reading"),
 )
 class ReadingViewSet(
     mixins.CreateModelMixin,

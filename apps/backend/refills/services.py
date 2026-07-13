@@ -8,9 +8,7 @@ from refills.models import RefillRequest
 
 
 @transaction.atomic
-def transition_refill_request(
-    *, refill_request_id: int, status: str, actor: User
-) -> RefillRequest:
+def transition_refill_request(*, refill_request_id: int, status: str, actor: User) -> RefillRequest:
     refill_request = (
         RefillRequest.objects.select_for_update()
         .select_related(

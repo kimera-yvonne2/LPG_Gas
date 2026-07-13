@@ -7,9 +7,7 @@ from devices.models import Cylinder, Household, Sensor
 from refills.models import RefillRequest
 
 
-def _refill_request_from_request(
-    request: Any | None, technician: User
-) -> RefillRequest | None:
+def _refill_request_from_request(request: Any | None, technician: User) -> RefillRequest | None:
     if request is None:
         return None
     refill_request_id = request.query_params.get("refill_request")
@@ -44,9 +42,7 @@ def cylinder_list_for(user: User, request: Any | None = None) -> QuerySet[Cylind
     queryset = Cylinder.objects.select_related("household", "household__owner")
     role = getattr(user, "role", None)
     if role == User.Role.HOUSEHOLD:
-        queryset = queryset.filter(household__owner=user).exclude(
-            status=Cylinder.Status.RETIRED
-        )
+        queryset = queryset.filter(household__owner=user).exclude(status=Cylinder.Status.RETIRED)
     elif role == User.Role.TECHNICIAN:
         refill_request = _refill_request_from_request(request, user)
         if refill_request is not None:
@@ -59,9 +55,7 @@ def cylinder_list_for(user: User, request: Any | None = None) -> QuerySet[Cylind
 
 
 def sensor_list_for(user: User, request: Any | None = None) -> QuerySet[Sensor]:
-    queryset = Sensor.objects.select_related(
-        "household", "household__owner", "cylinder"
-    )
+    queryset = Sensor.objects.select_related("household", "household__owner", "cylinder")
     role = getattr(user, "role", None)
     if role == User.Role.HOUSEHOLD:
         queryset = queryset.filter(household__owner=user, is_active=True)
