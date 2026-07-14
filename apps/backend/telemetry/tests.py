@@ -133,9 +133,7 @@ def test_household_reads_only_owned_readings(api_client, asset_graph):
     assert response.data["results"][0]["esp32_id"] == sensor.esp32_id
 
 
-def test_technician_cannot_see_readings_through_a_refill_request(
-    api_client, asset_graph
-):
+def test_technician_cannot_see_readings_through_a_refill_request(api_client, asset_graph):
     owner, _, sensor = asset_graph
     Reading.objects.create(
         sensor=sensor,
@@ -162,10 +160,7 @@ def test_household_cannot_create_or_modify_readings(api_client, asset_graph):
     owner, _, _ = asset_graph
     api_client.force_authenticate(owner)
     assert api_client.post(reverse("v1:telemetry:reading-list"), {}).status_code == 403
-    assert (
-        api_client.put(reverse("v1:telemetry:reading-detail", args=[1]), {}).status_code
-        == 403
-    )
+    assert api_client.put(reverse("v1:telemetry:reading-detail", args=[1]), {}).status_code == 403
 
 
 def test_reading_filter_search_order_and_pagination(api_client, asset_graph):

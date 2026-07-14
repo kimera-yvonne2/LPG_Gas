@@ -44,8 +44,7 @@ class RefillRequestSerializer(serializers.ModelSerializer):
         user = request.user
         role = getattr(user, "role", None)
         if role == User.Role.ADMIN or (
-            role == User.Role.TECHNICIAN
-            and obj.assigned_technician_id == getattr(user, "id", None)
+            role == User.Role.TECHNICIAN and obj.assigned_technician_id == getattr(user, "id", None)
         ):
             owner = obj.household.owner
             return {
@@ -57,9 +56,7 @@ class RefillRequestSerializer(serializers.ModelSerializer):
 
     def validate_assigned_technician(self, technician):
         if technician.role != User.Role.TECHNICIAN or not technician.is_active:
-            raise serializers.ValidationError(
-                "The refill provider must be an active technician."
-            )
+            raise serializers.ValidationError("The refill provider must be an active technician.")
         return technician
 
     def validate_household(self, household):

@@ -44,9 +44,7 @@ def send_verification_email(user: User) -> None:
 
 
 @transaction.atomic
-def register_household(
-    *, email: str, username: str, password: str, phone_number: str = ""
-) -> User:
+def register_household(*, email: str, username: str, password: str, phone_number: str = "") -> User:
     user = User.objects.create_user(
         email=email,
         username=username,
@@ -110,6 +108,4 @@ def can_resend_verification(user: User) -> bool:
     if not user.email_verification_sent_at:
         return True
     elapsed = timezone.now() - user.email_verification_sent_at
-    return (
-        elapsed.total_seconds() >= settings.EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS
-    )
+    return elapsed.total_seconds() >= settings.EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS

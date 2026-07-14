@@ -110,9 +110,7 @@ def test_household_cannot_override_the_manual_request_source(
     }
 
 
-def test_household_manual_refill_request_requires_technician(
-    api_client, household, cylinder
-):
+def test_household_manual_refill_request_requires_technician(api_client, household, cylinder):
     api_client.force_authenticate(household.owner)
     response = api_client.post(
         reverse("v1:refills:refill-request-list"),
@@ -123,9 +121,7 @@ def test_household_manual_refill_request_requires_technician(
     assert "assigned_technician" in response.data["detail"]
 
 
-def test_household_cannot_assign_refill_request_to_non_technician(
-    api_client, household, cylinder
-):
+def test_household_cannot_assign_refill_request_to_non_technician(api_client, household, cylinder):
     api_client.force_authenticate(household.owner)
     response = api_client.post(
         reverse("v1:refills:refill-request-list"),
@@ -367,9 +363,7 @@ def test_technician_cannot_retrieve_or_modify_another_technicians_request(
     url = reverse("v1:refills:refill-request-detail", args=[refill_request.id])
 
     assert api_client.get(url).status_code == 404
-    assert (
-        api_client.patch(url, {"status": "accepted"}, format="json").status_code == 403
-    )
+    assert api_client.patch(url, {"status": "accepted"}, format="json").status_code == 403
 
 
 def test_admin_lists_all_refill_requests(api_client, household, cylinder, technician):
@@ -400,9 +394,7 @@ def test_assigned_technician_receives_customer_contact_in_refill_request(
     )
     api_client.force_authenticate(technician)
 
-    response = api_client.get(
-        reverse("v1:refills:refill-request-detail", args=[refill_request.id])
-    )
+    response = api_client.get(reverse("v1:refills:refill-request-detail", args=[refill_request.id]))
 
     assert response.status_code == 200
     assert response.data["customer"] == {
@@ -421,9 +413,7 @@ def test_household_refill_response_does_not_duplicate_customer_contact(
     )
     api_client.force_authenticate(household.owner)
 
-    response = api_client.get(
-        reverse("v1:refills:refill-request-detail", args=[refill_request.id])
-    )
+    response = api_client.get(reverse("v1:refills:refill-request-detail", args=[refill_request.id]))
 
     assert response.status_code == 200
     assert response.data["customer"] is None
@@ -443,9 +433,7 @@ def test_admin_receives_customer_contact_in_refill_request(
     )
     api_client.force_authenticate(admin)
 
-    response = api_client.get(
-        reverse("v1:refills:refill-request-detail", args=[refill_request.id])
-    )
+    response = api_client.get(reverse("v1:refills:refill-request-detail", args=[refill_request.id]))
 
     assert response.status_code == 200
     assert response.data["customer"]["email"] == household.owner.email
@@ -523,9 +511,7 @@ def test_household_can_cancel_own_pending_or_accepted_request(
     assert response.data["status"] == RefillRequest.Status.CANCELLED
 
 
-def test_household_cannot_cancel_in_transit_request(
-    api_client, household, cylinder, technician
-):
+def test_household_cannot_cancel_in_transit_request(api_client, household, cylinder, technician):
     refill_request = RefillRequest.objects.create(
         household=household,
         assigned_technician=technician,
@@ -565,9 +551,7 @@ def test_terminal_refill_request_cannot_transition(
     assert response.status_code == 400
 
 
-def test_admin_can_cancel_in_transit_refill_request(
-    api_client, household, cylinder, technician
-):
+def test_admin_can_cancel_in_transit_refill_request(api_client, household, cylinder, technician):
     refill_request = RefillRequest.objects.create(
         household=household,
         assigned_technician=technician,

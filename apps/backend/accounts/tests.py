@@ -51,9 +51,7 @@ def login(api_client, user):
     return response.data
 
 
-def test_registration_creates_active_household_without_verification_email(
-    api_client, mailoutbox
-):
+def test_registration_creates_active_household_without_verification_email(api_client, mailoutbox):
     response = api_client.post(
         reverse("v1:accounts:register"),
         {
@@ -163,14 +161,9 @@ def test_email_verification_token_is_one_time(api_client):
     assert user.email_verified
 
 
-def test_password_reset_is_enumeration_safe_and_changes_password(
-    api_client, household, mailoutbox
-):
+def test_password_reset_is_enumeration_safe_and_changes_password(api_client, household, mailoutbox):
     request_url = reverse("v1:accounts:password-reset")
-    assert (
-        api_client.post(request_url, {"email": "missing@example.com"}).status_code
-        == 202
-    )
+    assert api_client.post(request_url, {"email": "missing@example.com"}).status_code == 202
     assert len(mailoutbox) == 0
     assert api_client.post(request_url, {"email": household.email}).status_code == 202
     assert len(mailoutbox) == 1
@@ -192,9 +185,7 @@ def test_password_reset_is_enumeration_safe_and_changes_password(
     assert household.check_password("Even-Stronger-456!")
 
 
-def test_resend_verification_is_enumeration_safe_and_rate_limited(
-    api_client, mailoutbox
-):
+def test_resend_verification_is_enumeration_safe_and_rate_limited(api_client, mailoutbox):
     user = User.objects.create_user(
         email="resend@example.com", username="resend", password="Stronger-Pass-123!"
     )
@@ -239,9 +230,7 @@ def test_admin_can_create_technician_and_list_users(api_client, admin_user):
     assert api_client.get(reverse("v1:accounts:user-list")).status_code == 200
 
 
-def test_admin_created_household_account_is_automatically_provisioned(
-    api_client, admin_user
-):
+def test_admin_created_household_account_is_automatically_provisioned(api_client, admin_user):
     tokens = login(api_client, admin_user)
     api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")
 

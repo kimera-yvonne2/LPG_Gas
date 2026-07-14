@@ -22,9 +22,7 @@ def cylinder_list_for(user: User, request: Any | None = None) -> QuerySet[Cylind
     queryset = Cylinder.objects.select_related("household", "household__owner")
     role = getattr(user, "role", None)
     if role == User.Role.HOUSEHOLD:
-        queryset = queryset.filter(household__owner=user).exclude(
-            status=Cylinder.Status.RETIRED
-        )
+        queryset = queryset.filter(household__owner=user).exclude(status=Cylinder.Status.RETIRED)
     elif role == User.Role.TECHNICIAN:
         queryset = queryset.none()
     elif role != User.Role.ADMIN:
@@ -33,9 +31,7 @@ def cylinder_list_for(user: User, request: Any | None = None) -> QuerySet[Cylind
 
 
 def sensor_list_for(user: User, request: Any | None = None) -> QuerySet[Sensor]:
-    queryset = Sensor.objects.select_related(
-        "household", "household__owner", "cylinder"
-    )
+    queryset = Sensor.objects.select_related("household", "household__owner", "cylinder")
     role = getattr(user, "role", None)
     if role == User.Role.HOUSEHOLD:
         queryset = queryset.filter(household__owner=user, is_active=True)
