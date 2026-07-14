@@ -1,3 +1,4 @@
+"use client";
 import React, { useEffect, useRef, useState } from "react";
 
 type PageName = "landing" | "login" | "signup";
@@ -19,8 +20,8 @@ const PAGE_MARKUP: string = `
     <a href="#pricing">Pricing</a>
   </div>
   <div class="nav-cta">
-    <a class="ghost" data-page="login">Log in</a>
-    <a class="btn btn-flame" data-page="signup">Get started</a>
+    <a class="ghost" href="/auth/login">Log in</a>
+    <a class="btn btn-flame" href="/auth/signup">Get started</a>
   </div>
 </nav>
 
@@ -33,7 +34,7 @@ const PAGE_MARKUP: string = `
       <h1>Know your gas level<br>before the flame <span class="accent">goes out.</span></h1>
       <p class="lede">LPG Guardian clips onto any cylinder and reads pressure, weight, and flow in real time — so leaks get caught in minutes, refills happen before you run dry, and nobody has to shake a tank to guess.</p>
       <div class="hero-actions">
-        <a class="btn btn-flame btn-lg" data-page="signup">Start monitoring free</a>
+        <a class="btn btn-flame btn-lg" href="/auth/signup">Start monitoring free</a>
         <a class="btn btn-outline btn-lg" href="#how">See how it works</a>
       </div>
       <div class="trust-row">
@@ -185,7 +186,7 @@ const PAGE_MARKUP: string = `
       <h2>Your first sensor ships free with any plan.</h2>
       <p class="sub">Set up in two minutes. Cancel any time — the sensor's yours to keep.</p>
     </div>
-    <a class="btn btn-flame btn-lg" data-page="signup">Create your account</a>
+    <a class="btn btn-flame btn-lg" href="/auth/signup">Create your account</a>
   </div>
 
   <footer>
@@ -208,8 +209,8 @@ const PAGE_MARKUP: string = `
         </div>
         <div class="footer-col">
           <h5>Account</h5>
-          <a data-page="login">Log in</a>
-          <a data-page="signup">Sign up</a>
+          <a href="/auth/login">Log in</a>
+          <a href="/auth/signup">Sign up</a>
         </div>
       </div>
     </div>

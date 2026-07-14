@@ -9,7 +9,7 @@ class RefillProviderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ("id", "name")
+        fields = ("id", "name", "email", "phone_number")
         read_only_fields = fields
 
 
@@ -19,14 +19,15 @@ class RefillTransitionSerializer(serializers.Serializer):
 
 class RefillRequestSerializer(serializers.ModelSerializer):
     customer = serializers.SerializerMethodField()
+    provider = RefillProviderSerializer(source="assigned_technician", read_only=True)
 
     class Meta:
         model = RefillRequest
         fields = (
             "id",
             "household",
-            "cylinder",
             "assigned_technician",
+            "provider",
             "customer",
             "status",
             "source",
@@ -34,14 +35,16 @@ class RefillRequestSerializer(serializers.ModelSerializer):
             "updated_at",
         )
         read_only_fields = ("id", "status", "requested_at", "updated_at")
+        extra_kwargs = {"household": {"required": False}}
 
     def get_customer(self, obj):
         request = self.context.get("request")
         if request is None:
             return None
         user = request.user
-        if user.role == User.Role.ADMIN or (
-            user.role == User.Role.TECHNICIAN and obj.assigned_technician_id == user.id
+        role = getattr(user, "role", None)
+        if role == User.Role.ADMIN or (
+            role == User.Role.TECHNICIAN and obj.assigned_technician_id == getattr(user, "id", None)
         ):
             owner = obj.household.owner
             return {
@@ -64,42 +67,23 @@ class RefillRequestSerializer(serializers.ModelSerializer):
             )
         return household
 
-    def validate_cylinder(self, cylinder):
-        request = self.context["request"]
-        if request.user.role == "household" and cylinder.household.owner_id != request.user.id:
-            raise serializers.ValidationError(
-                "You can only request refills for your own cylinders."
-            )
-        if cylinder.status == cylinder.Status.RETIRED:
-            raise serializers.ValidationError("A retired cylinder cannot be refilled.")
-        return cylinder
-
     def validate(self, attrs):
         request = self.context["request"]
-        source = attrs.get(
-            "source",
-            getattr(self.instance, "source", RefillRequest.Source.MANUAL),
-        )
         technician = attrs.get(
             "assigned_technician",
             getattr(self.instance, "assigned_technician", None),
         )
-        household = attrs.get("household", getattr(self.instance, "household", None))
-        cylinder = attrs.get("cylinder", getattr(self.instance, "cylinder", None))
-
-        if (
-            request.user.role == User.Role.HOUSEHOLD
-            and source == RefillRequest.Source.MANUAL
-            and technician is None
-        ):
+        if request.user.role == User.Role.HOUSEHOLD and technician is None:
             raise serializers.ValidationError(
                 {"assigned_technician": "Select a refill provider for this request."}
-            )
-        if household and cylinder and cylinder.household_id != household.id:
-            raise serializers.ValidationError(
-                {"cylinder": "The cylinder must belong to the selected household."}
             )
         return attrs
 
     def create(self, validated_data):
+        request = self.context["request"]
+        if request.user.role == User.Role.HOUSEHOLD:
+            validated_data["household"] = request.user.household
+            validated_data["source"] = RefillRequest.Source.MANUAL
+        elif "household" not in validated_data:
+            raise serializers.ValidationError({"household": "This field is required."})
         return RefillRequest.objects.create(**validated_data)

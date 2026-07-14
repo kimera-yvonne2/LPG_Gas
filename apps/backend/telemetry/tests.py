@@ -80,8 +80,8 @@ def create_prediction_readings(sensor, cylinder):
 
 def test_technician_creates_reading_and_updates_cylinder(api_client, asset_graph):
     _, cylinder, sensor = asset_graph
-    technician = make_user("reading-tech@example.com", User.Role.TECHNICIAN)
-    api_client.force_authenticate(technician)
+    admin = make_user("reading-admin@example.com", User.Role.ADMIN)
+    api_client.force_authenticate(admin)
     response = api_client.post(
         reverse("v1:telemetry:reading-list"),
         {
@@ -103,10 +103,29 @@ def test_technician_creates_reading_and_updates_cylinder(api_client, asset_graph
     assert cylinder.gas_percentage == Decimal("25.00")
 
 
+def test_technician_cannot_create_reading(api_client, asset_graph):
+    _, _, sensor = asset_graph
+    technician = make_user("reading-tech@example.com", User.Role.TECHNICIAN)
+    api_client.force_authenticate(technician)
+
+    response = api_client.post(
+        reverse("v1:telemetry:reading-list"),
+        {
+            "sensor": sensor.id,
+            "weight": "7.500",
+            "temperature": "28.50",
+            "signal_strength": -55,
+        },
+        format="json",
+    )
+
+    assert response.status_code == 403
+
+
 def test_reading_rejects_weight_outside_cylinder_limits(api_client, asset_graph):
     _, _, sensor = asset_graph
-    technician = make_user("invalid-tech@example.com", User.Role.TECHNICIAN)
-    api_client.force_authenticate(technician)
+    admin = make_user("invalid-admin@example.com", User.Role.ADMIN)
+    api_client.force_authenticate(admin)
     response = api_client.post(
         reverse("v1:telemetry:reading-list"),
         {
@@ -138,9 +157,7 @@ def test_household_reads_only_owned_readings(api_client, asset_graph):
     assert response.data["results"][0]["esp32_id"] == sensor.esp32_id
 
 
-def test_operational_roles_only_see_readings_for_the_requested_refill_request_context(
-    api_client, asset_graph
-):
+def test_technician_cannot_see_readings_through_a_refill_request(api_client, asset_graph):
     owner, _, sensor = asset_graph
     Reading.objects.create(
         sensor=sensor,
@@ -153,7 +170,6 @@ def test_operational_roles_only_see_readings_for_the_requested_refill_request_co
     user = make_user("reading-context@example.com", User.Role.TECHNICIAN)
     refill_request = RefillRequest.objects.create(
         household=owner.household,
-        cylinder=sensor.cylinder,
         assigned_technician=user,
         source=RefillRequest.Source.MANUAL,
     )
@@ -161,9 +177,7 @@ def test_operational_roles_only_see_readings_for_the_requested_refill_request_co
     response = api_client.get(
         reverse("v1:telemetry:reading-list"), {"refill_request": refill_request.id}
     )
-    assert response.status_code == 200
-    assert response.data["count"] == 1
-    assert response.data["results"][0]["esp32_id"] == sensor.esp32_id
+    assert response.status_code == 403
 
 
 def test_household_cannot_create_or_modify_readings(api_client, asset_graph):
@@ -209,7 +223,7 @@ def test_reading_filter_search_order_and_pagination(api_client, asset_graph):
 
 def test_duplicate_sensor_timestamp_is_rejected(api_client, asset_graph):
     _, _, sensor = asset_graph
-    technician = make_user("duplicate-tech@example.com", User.Role.TECHNICIAN)
+    admin = make_user("duplicate-admin@example.com", User.Role.ADMIN)
     timestamp = timezone.now() - timedelta(minutes=1)
     Reading.objects.create(
         sensor=sensor,
@@ -219,7 +233,7 @@ def test_duplicate_sensor_timestamp_is_rejected(api_client, asset_graph):
         temperature=Decimal("25.00"),
         signal_strength=-60,
     )
-    api_client.force_authenticate(technician)
+    api_client.force_authenticate(admin)
     response = api_client.post(
         reverse("v1:telemetry:reading-list"),
         {
@@ -236,10 +250,10 @@ def test_duplicate_sensor_timestamp_is_rejected(api_client, asset_graph):
 
 def test_disconnected_device_cannot_send_reading(api_client, asset_graph):
     _, _, sensor = asset_graph
-    technician = make_user("disconnected-tech@example.com", User.Role.TECHNICIAN)
+    admin = make_user("disconnected-admin@example.com", User.Role.ADMIN)
     sensor.cylinder = None
     sensor.save(update_fields=("cylinder",))
-    api_client.force_authenticate(technician)
+    api_client.force_authenticate(admin)
     response = api_client.post(
         reverse("v1:telemetry:reading-list"),
         {

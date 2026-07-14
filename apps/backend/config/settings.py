@@ -42,7 +42,6 @@ INSTALLED_APPS = [
     "alerts",
     "devices",
     "refills",
-    "service_providers",
     "telemetry",
 ]
 

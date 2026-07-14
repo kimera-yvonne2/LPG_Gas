@@ -35,13 +35,6 @@ class HouseholdSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "created_at", "updated_at")
         extra_kwargs = {"owner": {"required": False}}
 
-    def get_fields(self):
-        fields = super().get_fields()
-        request = self.context.get("request")
-        if request and getattr(request.user, "role", None) == User.Role.TECHNICIAN:
-            fields.pop("owner_email", None)
-        return fields
-
     def validate_owner(self, owner):
         if owner.role != User.Role.HOUSEHOLD:
             raise serializers.ValidationError("Household owner must have the household role.")
