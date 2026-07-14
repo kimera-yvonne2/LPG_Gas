@@ -32,7 +32,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, loading, logout } = useAuth();
   const [open, setOpen] = useState(false);
-  if (pathname.startsWith("/auth/")) return <>{children}</>;
+  if (pathname === "/" || pathname.startsWith("/auth/")) {
+  return <>{children}</>;
+  }
   if (loading) return <div className="grid min-h-screen place-items-center bg-[#f3f6fa] text-sm font-bold text-[#073b82]">Loading LPG Guardian…</div>;
   if (!user) {
     if (typeof window !== "undefined") window.location.replace(`/auth/login?next=${encodeURIComponent(pathname)}`);
