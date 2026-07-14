@@ -1,7 +1,7 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
-from telemetry.models import Reading
+from telemetry.models import DepletionEstimate, Reading
 from telemetry.services import create_reading
 
 
@@ -50,3 +50,40 @@ class ReadingSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         return create_reading(**validated_data)
+
+
+class DepletionEstimateSerializer(serializers.ModelSerializer):
+    cylinder_serial_number = serializers.CharField(
+        source="cylinder.serial_number",
+        read_only=True,
+    )
+    disclaimer = serializers.SerializerMethodField()
+
+    class Meta:
+        model = DepletionEstimate
+        fields = (
+            "id",
+            "cylinder",
+            "cylinder_serial_number",
+            "status",
+            "estimated_depletion_at",
+            "lower_bound_at",
+            "upper_bound_at",
+            "estimated_days_remaining",
+            "confidence_score",
+            "model_name",
+            "model_version",
+            "input_reading_count",
+            "input_started_at",
+            "input_ended_at",
+            "failure_reason",
+            "generated_at",
+            "disclaimer",
+        )
+        read_only_fields = fields
+
+    def get_disclaimer(self, obj):
+        return (
+            "This depletion forecast is an estimate based on recent usage "
+            "and must not be treated as a safety guarantee."
+        )

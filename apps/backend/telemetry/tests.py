@@ -1,5 +1,5 @@
 from datetime import timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 import pytest
 from django.urls import reverse
@@ -9,7 +9,9 @@ from rest_framework.test import APIClient
 from accounts.models import User
 from devices.models import Cylinder, Household, Sensor
 from refills.models import RefillRequest
-from telemetry.models import Reading
+from telemetry.models import DepletionEstimate, Reading
+from telemetry.services import generate_depletion_estimate
+from telemetry.tasks import generate_depletion_estimate_task
 
 pytestmark = pytest.mark.django_db
 
@@ -54,7 +56,29 @@ def asset_graph():
     return owner, cylinder, sensor
 
 
-def test_admin_creates_reading_and_updates_cylinder(api_client, asset_graph):
+def create_prediction_readings(sensor, cylinder):
+    now = timezone.now()
+
+    readings = [
+        (now - timedelta(days=4), Decimal("10.000")),
+        (now - timedelta(days=3), Decimal("9.200")),
+        (now - timedelta(days=2), Decimal("8.300")),
+        (now - timedelta(days=1), Decimal("7.300")),
+        (now - timedelta(hours=1), Decimal("6.500")),
+    ]
+
+    for timestamp, weight in readings:
+        Reading.objects.create(
+            sensor=sensor,
+            cylinder=cylinder,
+            timestamp=timestamp,
+            weight=weight,
+            temperature=Decimal("25.00"),
+            signal_strength=-60,
+        )
+
+
+def test_technician_creates_reading_and_updates_cylinder(api_client, asset_graph):
     _, cylinder, sensor = asset_graph
     admin = make_user("reading-admin@example.com", User.Role.ADMIN)
     api_client.force_authenticate(admin)
@@ -243,3 +267,294 @@ def test_disconnected_device_cannot_send_reading(api_client, asset_graph):
     )
     assert response.status_code == 400
     assert "sensor" in response.data["detail"]
+
+
+def test_generate_depletion_estimate_success(asset_graph):
+    _, cylinder, sensor = asset_graph
+    create_prediction_readings(sensor, cylinder)
+
+    estimate = generate_depletion_estimate(cylinder)
+
+    assert estimate.status == DepletionEstimate.Status.AVAILABLE
+    assert estimate.model_name == "weighted-average-depletion"
+    assert estimate.model_version == "1.0.0"
+    assert estimate.input_reading_count == 5
+    assert estimate.estimated_days_remaining is not None
+    assert estimate.estimated_days_remaining > 0
+    assert estimate.estimated_depletion_at is not None
+    assert estimate.lower_bound_at is not None
+    assert estimate.upper_bound_at is not None
+    assert estimate.lower_bound_at <= estimate.estimated_depletion_at
+    assert estimate.estimated_depletion_at <= estimate.upper_bound_at
+    assert estimate.confidence_score is not None
+    assert Decimal("0") <= estimate.confidence_score <= Decimal("1")
+
+
+def test_generate_depletion_estimate_returns_insufficient_data(asset_graph):
+    _, cylinder, sensor = asset_graph
+
+    Reading.objects.create(
+        sensor=sensor,
+        cylinder=cylinder,
+        timestamp=timezone.now() - timedelta(hours=2),
+        weight=Decimal("9.000"),
+        temperature=Decimal("25.00"),
+        signal_strength=-60,
+    )
+
+    estimate = generate_depletion_estimate(cylinder)
+
+    assert estimate.status == DepletionEstimate.Status.INSUFFICIENT_DATA
+    assert estimate.estimated_days_remaining is None
+    assert estimate.estimated_depletion_at is None
+    assert estimate.lower_bound_at is None
+    assert estimate.upper_bound_at is None
+    assert estimate.input_reading_count == 1
+    assert "At least 5 recent readings are required" in estimate.failure_reason
+
+
+def test_generate_depletion_estimate_returns_stale_data(asset_graph):
+    _, cylinder, sensor = asset_graph
+    now = timezone.now()
+
+    readings = [
+        (now - timedelta(days=6), Decimal("10.000")),
+        (now - timedelta(days=5), Decimal("9.500")),
+        (now - timedelta(days=4), Decimal("9.000")),
+        (now - timedelta(days=3), Decimal("8.500")),
+        (now - timedelta(days=2), Decimal("8.000")),
+    ]
+
+    for timestamp, weight in readings:
+        Reading.objects.create(
+            sensor=sensor,
+            cylinder=cylinder,
+            timestamp=timestamp,
+            weight=weight,
+            temperature=Decimal("25.00"),
+            signal_strength=-60,
+        )
+
+    estimate = generate_depletion_estimate(cylinder)
+
+    assert estimate.status == DepletionEstimate.Status.STALE_DATA
+    assert estimate.estimated_days_remaining is None
+    assert estimate.estimated_depletion_at is None
+    assert estimate.lower_bound_at is None
+    assert estimate.upper_bound_at is None
+    assert estimate.input_reading_count == 5
+    assert "more than 24 hours old" in estimate.failure_reason
+
+
+def test_generate_depletion_estimate_uses_readings_after_latest_refill(asset_graph):
+    _, cylinder, sensor = asset_graph
+    now = timezone.now()
+
+    readings = [
+        (now - timedelta(days=6), Decimal("8.000")),
+        (now - timedelta(days=5), Decimal("7.500")),
+        # Weight rises sharply here, so this should be treated as a refill.
+        (now - timedelta(days=4), Decimal("10.000")),
+        (now - timedelta(days=3), Decimal("9.200")),
+        (now - timedelta(days=2), Decimal("8.400")),
+        (now - timedelta(days=1), Decimal("7.600")),
+        (now - timedelta(hours=1), Decimal("6.800")),
+    ]
+
+    for timestamp, weight in readings:
+        Reading.objects.create(
+            sensor=sensor,
+            cylinder=cylinder,
+            timestamp=timestamp,
+            weight=weight,
+            temperature=Decimal("25.00"),
+            signal_strength=-60,
+        )
+
+    estimate = generate_depletion_estimate(cylinder)
+
+    assert estimate.status == DepletionEstimate.Status.AVAILABLE
+    assert estimate.input_reading_count == 5
+    assert estimate.input_started_at == readings[2][0]
+    assert estimate.input_ended_at == readings[-1][0]
+
+
+def test_household_can_view_own_depletion_estimate(api_client, asset_graph):
+    owner, cylinder, _ = asset_graph
+
+    estimate = DepletionEstimate.objects.create(
+        cylinder=cylinder,
+        status=DepletionEstimate.Status.AVAILABLE,
+        estimated_depletion_at=timezone.now() + timedelta(days=5),
+        lower_bound_at=timezone.now() + timedelta(days=4),
+        upper_bound_at=timezone.now() + timedelta(days=7),
+        estimated_days_remaining=Decimal("5.00"),
+        confidence_score=Decimal("0.80"),
+        model_name="weighted-average-depletion",
+        model_version="1.0.0",
+        input_reading_count=5,
+        input_started_at=timezone.now() - timedelta(days=4),
+        input_ended_at=timezone.now() - timedelta(hours=1),
+    )
+
+    api_client.force_authenticate(owner)
+
+    response = api_client.get(reverse("v1:telemetry:depletion-estimate-list"))
+
+    assert response.status_code == 200
+    assert response.data["count"] == 1
+    assert response.data["results"][0]["id"] == estimate.id
+    assert response.data["results"][0]["cylinder"] == cylinder.id
+    assert response.data["results"][0]["model_version"] == "1.0.0"
+    assert "safety guarantee" in response.data["results"][0]["disclaimer"]
+
+
+def test_household_cannot_view_another_households_depletion_estimate(
+    api_client,
+    asset_graph,
+):
+    owner, _, _ = asset_graph
+
+    other_owner = make_user(
+        "other-household@example.com",
+        User.Role.HOUSEHOLD,
+    )
+    other_household = Household.objects.create(owner=other_owner)
+    other_cylinder = Cylinder.objects.create(
+        household=other_household,
+        serial_number="CYL-OTHER",
+        capacity=Decimal("10.000"),
+        empty_weight=Decimal("5.000"),
+        current_weight=Decimal("9.000"),
+        installation_date=timezone.localdate(),
+    )
+
+    DepletionEstimate.objects.create(
+        cylinder=other_cylinder,
+        status=DepletionEstimate.Status.AVAILABLE,
+        estimated_depletion_at=timezone.now() + timedelta(days=5),
+        lower_bound_at=timezone.now() + timedelta(days=4),
+        upper_bound_at=timezone.now() + timedelta(days=7),
+        estimated_days_remaining=Decimal("5.00"),
+        confidence_score=Decimal("0.80"),
+        model_name="weighted-average-depletion",
+        model_version="1.0.0",
+        input_reading_count=5,
+        input_started_at=timezone.now() - timedelta(days=4),
+        input_ended_at=timezone.now() - timedelta(hours=1),
+    )
+
+    api_client.force_authenticate(owner)
+
+    response = api_client.get(reverse("v1:telemetry:depletion-estimate-list"))
+
+    assert response.status_code == 200
+    assert response.data["count"] == 0
+
+
+def test_technician_cannot_access_depletion_estimates(api_client, asset_graph):
+    _, cylinder, _ = asset_graph
+
+    DepletionEstimate.objects.create(
+        cylinder=cylinder,
+        status=DepletionEstimate.Status.AVAILABLE,
+        estimated_depletion_at=timezone.now() + timedelta(days=5),
+        lower_bound_at=timezone.now() + timedelta(days=4),
+        upper_bound_at=timezone.now() + timedelta(days=7),
+        estimated_days_remaining=Decimal("5.00"),
+        confidence_score=Decimal("0.80"),
+        model_name="weighted-average-depletion",
+        model_version="1.0.0",
+        input_reading_count=5,
+        input_started_at=timezone.now() - timedelta(days=4),
+        input_ended_at=timezone.now() - timedelta(hours=1),
+    )
+
+    technician = make_user(
+        "prediction-tech@example.com",
+        User.Role.TECHNICIAN,
+    )
+    api_client.force_authenticate(technician)
+
+    response = api_client.get(reverse("v1:telemetry:depletion-estimate-list"))
+
+    assert response.status_code == 403
+
+
+def test_depletion_task_creates_estimate(asset_graph):
+    _, cylinder, sensor = asset_graph
+    create_prediction_readings(sensor, cylinder)
+
+    estimate_id = generate_depletion_estimate_task.run(cylinder.id)
+
+    estimate = DepletionEstimate.objects.get(pk=estimate_id)
+
+    assert estimate.cylinder == cylinder
+    assert estimate.status == DepletionEstimate.Status.AVAILABLE
+    assert estimate.model_version == "1.0.0"
+
+
+def test_depletion_task_handles_missing_cylinder():
+    estimate_id = generate_depletion_estimate_task.run(999999)
+
+    assert estimate_id is None
+    assert DepletionEstimate.objects.count() == 0
+
+
+def test_generate_depletion_estimate_handles_zero_consumption(asset_graph):
+    _, cylinder, sensor = asset_graph
+    now = timezone.now()
+
+    readings = [
+        (now - timedelta(days=4), Decimal("9.000")),
+        (now - timedelta(days=3), Decimal("9.000")),
+        (now - timedelta(days=2), Decimal("9.000")),
+        (now - timedelta(days=1), Decimal("9.000")),
+        (now - timedelta(hours=1), Decimal("9.000")),
+    ]
+
+    for timestamp, weight in readings:
+        Reading.objects.create(
+            sensor=sensor,
+            cylinder=cylinder,
+            timestamp=timestamp,
+            weight=weight,
+            temperature=Decimal("25.00"),
+            signal_strength=-60,
+        )
+
+    estimate = generate_depletion_estimate(cylinder)
+
+    assert estimate.status == DepletionEstimate.Status.INSUFFICIENT_DATA
+    assert estimate.estimated_days_remaining is None
+    assert estimate.estimated_depletion_at is None
+    assert estimate.lower_bound_at is None
+    assert estimate.upper_bound_at is None
+    assert "reliable gas-consumption rate" in estimate.failure_reason
+
+
+def test_generate_depletion_estimate_handles_calculation_failure(
+    asset_graph,
+    monkeypatch,
+):
+    _, cylinder, sensor = asset_graph
+    create_prediction_readings(sensor, cylinder)
+
+    def raise_calculation_error(values):
+        raise InvalidOperation
+
+    monkeypatch.setattr(
+        "telemetry.services._weighted_average",
+        raise_calculation_error,
+    )
+
+    estimate = generate_depletion_estimate(cylinder)
+
+    assert estimate.status == DepletionEstimate.Status.FAILED
+    assert estimate.estimated_days_remaining is None
+    assert estimate.estimated_depletion_at is None
+    assert estimate.lower_bound_at is None
+    assert estimate.upper_bound_at is None
+    assert estimate.model_name == "weighted-average-depletion"
+    assert estimate.model_version == "1.0.0"
+    assert "InvalidOperation" in estimate.failure_reason
