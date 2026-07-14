@@ -8,7 +8,6 @@ def refill_request_list_for(user: User) -> QuerySet[RefillRequest]:
     queryset = RefillRequest.objects.select_related(
         "household",
         "household__owner",
-        "cylinder",
         "assigned_technician",
     )
     role = getattr(user, "role", None)

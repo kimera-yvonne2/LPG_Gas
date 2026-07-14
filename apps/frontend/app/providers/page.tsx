@@ -1,4 +1,5 @@
-import Link from "next/link";
-import { Building2 } from "lucide-react";
-import { PageHeading } from "@/components/ui-kit";
-export default function ProvidersPage() { return <div className="mx-auto max-w-[760px]"><PageHeading title="Service Providers" subtitle="Service-provider records are not yet exposed by the backend." /><section className="card grid min-h-72 place-items-center p-8 text-center"><div><Building2 className="mx-auto text-slate-400" size={38} /><h2 className="section-title mt-4">No provider API is available</h2><p className="mx-auto mt-2 max-w-md text-xs leading-5 text-slate-500">This screen contains no placeholder companies, prices, ratings, locations, or phone numbers. Provider management will appear when its backend module has a model and API.</p><Link href="/" className="btn-secondary mt-5">Return to dashboard</Link></div></section></div>; }
+import { redirect } from "next/navigation";
+
+export default function ProvidersPage() {
+  redirect("/refills");
+}

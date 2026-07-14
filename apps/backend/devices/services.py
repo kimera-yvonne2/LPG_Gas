@@ -85,7 +85,7 @@ def remove_cylinder(*, cylinder: Cylinder, actor: User) -> str:
     if not _can_manage_household(actor, cylinder.household):
         raise PermissionDenied("You cannot manage this cylinder.")
     Sensor.objects.filter(cylinder=cylinder).update(cylinder=None, online_status=False)
-    if cylinder.readings.exists() or cylinder.refill_requests.exists():
+    if cylinder.readings.exists():
         cylinder.status = Cylinder.Status.RETIRED
         cylinder.save(update_fields=("status", "updated_at"))
         return "retired"

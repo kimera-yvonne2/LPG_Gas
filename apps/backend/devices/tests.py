@@ -211,9 +211,7 @@ def test_household_cannot_access_another_households_cylinder(
     assert response.status_code == 404
 
 
-def test_technician_only_sees_cylinders_for_the_requested_refill_request_context(
-    api_client, cylinder
-):
+def test_technician_cannot_see_cylinders_through_a_refill_request(api_client, cylinder):
     role = User.Role.TECHNICIAN
     user = User.objects.create_user(
         email=f"{role}-context@example.com",
@@ -224,7 +222,6 @@ def test_technician_only_sees_cylinders_for_the_requested_refill_request_context
     )
     refill_request = RefillRequest.objects.create(
         household=cylinder.household,
-        cylinder=cylinder,
         assigned_technician=user,
         source=RefillRequest.Source.MANUAL,
     )
@@ -233,9 +230,7 @@ def test_technician_only_sees_cylinders_for_the_requested_refill_request_context
         reverse("v1:devices:cylinder-list"),
         {"refill_request": refill_request.id, "search": "CYL-0001"},
     )
-    assert response.status_code == 200
-    assert response.data["count"] == 1
-    assert response.data["results"][0]["serial_number"] == cylinder.serial_number
+    assert response.status_code == 403
 
 
 def test_technician_cannot_use_another_technicians_refill_context(api_client, cylinder, technician):
@@ -248,7 +243,6 @@ def test_technician_cannot_use_another_technicians_refill_context(api_client, cy
     )
     refill_request = RefillRequest.objects.create(
         household=cylinder.household,
-        cylinder=cylinder,
         assigned_technician=assigned_technician,
     )
     authenticate(api_client, technician)
@@ -258,16 +252,14 @@ def test_technician_cannot_use_another_technicians_refill_context(api_client, cy
         {"refill_request": refill_request.id},
     )
 
-    assert response.status_code == 200
-    assert response.data["count"] == 0
+    assert response.status_code == 403
 
 
-def test_technician_household_context_does_not_expose_contact_fields(
+def test_technician_cannot_access_household_through_refill_context(
     api_client, cylinder, technician
 ):
     refill_request = RefillRequest.objects.create(
         household=cylinder.household,
-        cylinder=cylinder,
         assigned_technician=technician,
     )
     authenticate(api_client, technician)
@@ -277,11 +269,7 @@ def test_technician_household_context_does_not_expose_contact_fields(
         {"refill_request": refill_request.id},
     )
 
-    household_data = response.data["results"][0]
-    assert "owner_email" not in household_data
-    assert "email" not in household_data
-    assert "phone" not in household_data
-    assert "address" not in household_data
+    assert response.status_code == 403
 
 
 def test_technician_cannot_create_cylinder(api_client, household, technician):
@@ -314,7 +302,7 @@ def test_inactive_users_are_blocked_but_legacy_unverified_users_are_allowed(api_
     assert api_client.get(reverse("v1:devices:household-list")).status_code == 200
 
 
-def test_technician_can_register_sensor_and_mac_is_normalized(api_client, cylinder, technician):
+def test_technician_cannot_register_sensor(api_client, cylinder, technician):
     authenticate(api_client, technician)
     response = api_client.post(
         reverse("v1:devices:sensor-list"),
@@ -329,8 +317,7 @@ def test_technician_can_register_sensor_and_mac_is_normalized(api_client, cylind
         },
         format="json",
     )
-    assert response.status_code == 201
-    assert response.data["mac_address"] == "AA:BB:CC:DD:EE:FF"
+    assert response.status_code == 403
 
 
 def test_household_can_create_update_and_delete_sensor_for_own_cylinder(api_client, cylinder):

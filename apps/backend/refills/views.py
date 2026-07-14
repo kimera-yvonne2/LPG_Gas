@@ -19,6 +19,8 @@ from refills.services import transition_refill_request
 class RefillProviderListView(generics.ListAPIView):
     serializer_class = RefillProviderSerializer
     permission_classes = (IsHousehold | IsAdminRole,)
+    filter_backends = (filters.SearchFilter,)
+    search_fields = ("username", "email", "phone_number")
 
     def get_queryset(self):
         return refill_provider_list()
@@ -35,7 +37,6 @@ class RefillRequestViewSet(viewsets.ModelViewSet):
     )
     search_fields = (
         "household__owner__username",
-        "cylinder__serial_number",
         "status",
         "source",
     )
