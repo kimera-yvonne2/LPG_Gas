@@ -43,9 +43,13 @@ def connect_sensor(*, sensor: Sensor, cylinder: Cylinder, actor: User) -> Sensor
             {"cylinder": "The device and cylinder must belong to the same household."}
         )
     if cylinder.status == Cylinder.Status.RETIRED:
-        raise ValidationError({"cylinder": "A retired cylinder cannot receive a device."})
+        raise ValidationError(
+            {"cylinder": "A retired cylinder cannot receive a device."}
+        )
     if Sensor.objects.filter(cylinder=cylinder).exclude(pk=sensor.pk).exists():
-        raise ValidationError({"cylinder": "This cylinder already has a connected device."})
+        raise ValidationError(
+            {"cylinder": "This cylinder already has a connected device."}
+        )
     if not sensor.is_active:
         raise ValidationError({"device": "An inactive device cannot be connected."})
     sensor.cylinder = cylinder
@@ -73,7 +77,9 @@ def remove_sensor(*, sensor: Sensor, actor: User) -> str:
         sensor.cylinder = None
         sensor.is_active = False
         sensor.online_status = False
-        sensor.save(update_fields=("cylinder", "is_active", "online_status", "updated_at"))
+        sensor.save(
+            update_fields=("cylinder", "is_active", "online_status", "updated_at")
+        )
         return "deactivated"
     sensor.delete()
     return "deleted"
@@ -85,7 +91,7 @@ def remove_cylinder(*, cylinder: Cylinder, actor: User) -> str:
     if not _can_manage_household(actor, cylinder.household):
         raise PermissionDenied("You cannot manage this cylinder.")
     Sensor.objects.filter(cylinder=cylinder).update(cylinder=None, online_status=False)
-    if cylinder.readings.exists() or cylinder.refill_requests.exists():
+    if cylinder.readings.exists():
         cylinder.status = Cylinder.Status.RETIRED
         cylinder.save(update_fields=("status", "updated_at"))
         return "retired"
@@ -94,7 +100,9 @@ def remove_cylinder(*, cylinder: Cylinder, actor: User) -> str:
 
 
 @transaction.atomic
-def replace_cylinder(*, cylinder: Cylinder, actor: User, **replacement_data) -> Cylinder:
+def replace_cylinder(
+    *, cylinder: Cylinder, actor: User, **replacement_data
+) -> Cylinder:
     cylinder = Cylinder.objects.select_for_update().get(pk=cylinder.pk)
     if not _can_manage_household(actor, cylinder.household):
         raise PermissionDenied("You cannot manage this cylinder.")

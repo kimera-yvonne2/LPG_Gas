@@ -150,7 +150,9 @@ class EmailVerificationView(APIView):
     @extend_schema(
         tags=["Authentication"],
         summary="Verify an email address",
-        parameters=[OpenApiParameter("token", str, OpenApiParameter.QUERY, required=True)],
+        parameters=[
+            OpenApiParameter("token", str, OpenApiParameter.QUERY, required=True)
+        ],
         responses={204: None},
     )
     def get(self, request):
@@ -192,7 +194,9 @@ class ResendVerificationView(APIView):
 @extend_schema_view(
     list=extend_schema(tags=["Users"], summary="List users (admin only)"),
     retrieve=extend_schema(tags=["Users"], summary="Retrieve a user (admin only)"),
-    create=extend_schema(tags=["Users"], summary="Create a role-bearing user (admin only)"),
+    create=extend_schema(
+        tags=["Users"], summary="Create a role-bearing user (admin only)"
+    ),
     update=extend_schema(tags=["Users"], summary="Replace a user (admin only)"),
     partial_update=extend_schema(tags=["Users"], summary="Update a user (admin only)"),
 )

@@ -7,7 +7,9 @@ from telemetry.services import create_reading
 
 class ReadingSerializer(serializers.ModelSerializer):
     esp32_id = serializers.CharField(source="sensor.esp32_id", read_only=True)
-    cylinder_serial_number = serializers.CharField(source="cylinder.serial_number", read_only=True)
+    cylinder_serial_number = serializers.CharField(
+        source="cylinder.serial_number", read_only=True
+    )
 
     class Meta:
         model = Reading

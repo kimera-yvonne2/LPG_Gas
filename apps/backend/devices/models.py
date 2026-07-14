@@ -31,7 +31,9 @@ class Cylinder(models.Model):
         MAINTENANCE = "maintenance", "Maintenance"
         RETIRED = "retired", "Retired"
 
-    household = models.ForeignKey(Household, on_delete=models.PROTECT, related_name="cylinders")
+    household = models.ForeignKey(
+        Household, on_delete=models.PROTECT, related_name="cylinders"
+    )
     serial_number = models.CharField(max_length=100, unique=True)
     capacity = models.DecimalField(
         max_digits=8,
@@ -53,14 +55,18 @@ class Cylinder(models.Model):
     )
     gas_percentage = models.DecimalField(max_digits=5, decimal_places=2, editable=False)
     installation_date = models.DateField()
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.ACTIVE
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ("serial_number",)
         indexes = [
-            models.Index(fields=("household", "status"), name="cylinder_owner_status_idx"),
+            models.Index(
+                fields=("household", "status"), name="cylinder_owner_status_idx"
+            ),
             models.Index(fields=("installation_date",), name="cylinder_install_idx"),
         ]
 
@@ -78,7 +84,9 @@ class Cylinder(models.Model):
         errors = {}
         if self.current_weight is not None and self.empty_weight is not None:
             if self.current_weight < self.empty_weight:
-                errors["current_weight"] = "Current weight cannot be below empty weight."
+                errors["current_weight"] = (
+                    "Current weight cannot be below empty weight."
+                )
             if (
                 self.capacity is not None
                 and self.current_weight > self.empty_weight + self.capacity
@@ -103,7 +111,9 @@ class Sensor(models.Model):
         message="Enter a MAC address in AA:BB:CC:DD:EE:FF format.",
     )
 
-    household = models.ForeignKey(Household, on_delete=models.PROTECT, related_name="sensors")
+    household = models.ForeignKey(
+        Household, on_delete=models.PROTECT, related_name="sensors"
+    )
     cylinder = models.OneToOneField(
         Cylinder,
         on_delete=models.SET_NULL,
@@ -113,7 +123,9 @@ class Sensor(models.Model):
     )
     esp32_id = models.CharField(max_length=100, unique=True)
     firmware_version = models.CharField(max_length=50)
-    mac_address = models.CharField(max_length=17, unique=True, validators=[mac_address_validator])
+    mac_address = models.CharField(
+        max_length=17, unique=True, validators=[mac_address_validator]
+    )
     battery_level = models.DecimalField(
         max_digits=5,
         decimal_places=2,
@@ -128,7 +140,9 @@ class Sensor(models.Model):
     class Meta:
         ordering = ("esp32_id",)
         indexes = [
-            models.Index(fields=("online_status", "last_seen"), name="sensor_online_seen_idx")
+            models.Index(
+                fields=("online_status", "last_seen"), name="sensor_online_seen_idx"
+            )
         ]
 
     def __str__(self):
@@ -145,8 +159,12 @@ class Sensor(models.Model):
             errors["last_seen"] = "Last seen cannot be in the future."
         if self.cylinder_id and self.household_id:
             if self.cylinder.household_id != self.household_id:
-                errors["cylinder"] = "The device and cylinder must belong to the same household."
+                errors["cylinder"] = (
+                    "The device and cylinder must belong to the same household."
+                )
             if self.cylinder.status == Cylinder.Status.RETIRED:
-                errors["cylinder"] = "A device cannot be connected to a retired cylinder."
+                errors["cylinder"] = (
+                    "A device cannot be connected to a retired cylinder."
+                )
         if errors:
             raise ValidationError(errors)

@@ -41,17 +41,29 @@ class AssetViewSet(viewsets.ModelViewSet):
             instance.delete()
         except ProtectedError as exc:
             raise serializers.ValidationError(
-                {"detail": "This asset is referenced by another record and cannot be deleted."}
+                {
+                    "detail": "This asset is referenced by another record and cannot be deleted."
+                }
             ) from exc
 
 
 @extend_schema_view(
     list=extend_schema(tags=["LPG Assets - Households"], summary="List households"),
-    retrieve=extend_schema(tags=["LPG Assets - Households"], summary="Retrieve a household"),
-    create=extend_schema(tags=["LPG Assets - Households"], summary="Create a household"),
-    update=extend_schema(tags=["LPG Assets - Households"], summary="Replace a household"),
-    partial_update=extend_schema(tags=["LPG Assets - Households"], summary="Update a household"),
-    destroy=extend_schema(tags=["LPG Assets - Households"], summary="Delete a household"),
+    retrieve=extend_schema(
+        tags=["LPG Assets - Households"], summary="Retrieve a household"
+    ),
+    create=extend_schema(
+        tags=["LPG Assets - Households"], summary="Create a household"
+    ),
+    update=extend_schema(
+        tags=["LPG Assets - Households"], summary="Replace a household"
+    ),
+    partial_update=extend_schema(
+        tags=["LPG Assets - Households"], summary="Update a household"
+    ),
+    destroy=extend_schema(
+        tags=["LPG Assets - Households"], summary="Delete a household"
+    ),
 )
 class HouseholdViewSet(AssetViewSet):
     queryset = Household.objects.none()
@@ -68,10 +80,14 @@ class HouseholdViewSet(AssetViewSet):
 
 @extend_schema_view(
     list=extend_schema(tags=["LPG Assets - Cylinders"], summary="List cylinders"),
-    retrieve=extend_schema(tags=["LPG Assets - Cylinders"], summary="Retrieve a cylinder"),
+    retrieve=extend_schema(
+        tags=["LPG Assets - Cylinders"], summary="Retrieve a cylinder"
+    ),
     create=extend_schema(tags=["LPG Assets - Cylinders"], summary="Create a cylinder"),
     update=extend_schema(tags=["LPG Assets - Cylinders"], summary="Replace a cylinder"),
-    partial_update=extend_schema(tags=["LPG Assets - Cylinders"], summary="Update a cylinder"),
+    partial_update=extend_schema(
+        tags=["LPG Assets - Cylinders"], summary="Update a cylinder"
+    ),
     destroy=extend_schema(tags=["LPG Assets - Cylinders"], summary="Delete a cylinder"),
 )
 class CylinderViewSet(AssetViewSet):
@@ -120,7 +136,9 @@ class CylinderViewSet(AssetViewSet):
     retrieve=extend_schema(tags=["LPG Assets - Sensors"], summary="Retrieve a sensor"),
     create=extend_schema(tags=["LPG Assets - Sensors"], summary="Register a sensor"),
     update=extend_schema(tags=["LPG Assets - Sensors"], summary="Replace a sensor"),
-    partial_update=extend_schema(tags=["LPG Assets - Sensors"], summary="Update a sensor"),
+    partial_update=extend_schema(
+        tags=["LPG Assets - Sensors"], summary="Update a sensor"
+    ),
     destroy=extend_schema(tags=["LPG Assets - Sensors"], summary="Delete a sensor"),
 )
 class SensorViewSet(AssetViewSet):

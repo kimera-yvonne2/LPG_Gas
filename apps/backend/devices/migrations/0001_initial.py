@@ -84,7 +84,9 @@ class Migration(migrations.Migration):
                         decimal_places=3,
                         help_text="Usable LPG capacity in kilograms.",
                         max_digits=8,
-                        validators=[django.core.validators.MinValueValidator(Decimal("0.001"))],
+                        validators=[
+                            django.core.validators.MinValueValidator(Decimal("0.001"))
+                        ],
                     ),
                 ),
                 (
@@ -93,7 +95,9 @@ class Migration(migrations.Migration):
                         decimal_places=3,
                         help_text="Cylinder tare weight in kilograms.",
                         max_digits=8,
-                        validators=[django.core.validators.MinValueValidator(Decimal("0"))],
+                        validators=[
+                            django.core.validators.MinValueValidator(Decimal("0"))
+                        ],
                     ),
                 ),
                 (
@@ -102,7 +106,9 @@ class Migration(migrations.Migration):
                         decimal_places=3,
                         help_text="Current total cylinder weight in kilograms.",
                         max_digits=8,
-                        validators=[django.core.validators.MinValueValidator(Decimal("0"))],
+                        validators=[
+                            django.core.validators.MinValueValidator(Decimal("0"))
+                        ],
                     ),
                 ),
                 (
@@ -199,11 +205,15 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name="cylinder",
-            index=models.Index(fields=["household", "status"], name="cylinder_owner_status_idx"),
+            index=models.Index(
+                fields=["household", "status"], name="cylinder_owner_status_idx"
+            ),
         ),
         migrations.AddIndex(
             model_name="cylinder",
-            index=models.Index(fields=["installation_date"], name="cylinder_install_idx"),
+            index=models.Index(
+                fields=["installation_date"], name="cylinder_install_idx"
+            ),
         ),
         migrations.AddIndex(
             model_name="sensor",

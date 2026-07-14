@@ -36,7 +36,9 @@ class Migration(migrations.Migration):
                         decimal_places=3,
                         help_text="Measured total cylinder weight in kilograms.",
                         max_digits=8,
-                        validators=[django.core.validators.MinValueValidator(Decimal("0"))],
+                        validators=[
+                            django.core.validators.MinValueValidator(Decimal("0"))
+                        ],
                     ),
                 ),
                 (
@@ -85,7 +87,9 @@ class Migration(migrations.Migration):
             options={
                 "ordering": ("-timestamp",),
                 "indexes": [
-                    models.Index(fields=["sensor", "-timestamp"], name="reading_sensor_time_idx"),
+                    models.Index(
+                        fields=["sensor", "-timestamp"], name="reading_sensor_time_idx"
+                    ),
                     models.Index(fields=["timestamp"], name="reading_time_idx"),
                 ],
                 "constraints": [

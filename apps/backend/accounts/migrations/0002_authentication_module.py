@@ -5,7 +5,9 @@ from django.db import migrations, models
 
 def populate_verification_tokens(apps, schema_editor):
     user_model = apps.get_model("accounts", "User")
-    for user in user_model.objects.filter(email_verification_token__isnull=True).iterator():
+    for user in user_model.objects.filter(
+        email_verification_token__isnull=True
+    ).iterator():
         user.email_verification_token = uuid.uuid4()
         user.save(update_fields=["email_verification_token"])
 

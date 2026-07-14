@@ -21,11 +21,6 @@ class RefillRequest(models.Model):
         on_delete=models.PROTECT,
         related_name="refill_requests",
     )
-    cylinder = models.ForeignKey(
-        "devices.Cylinder",
-        on_delete=models.PROTECT,
-        related_name="refill_requests",
-    )
     assigned_technician = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -34,8 +29,12 @@ class RefillRequest(models.Model):
         blank=True,
         null=True,
     )
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
-    source = models.CharField(max_length=20, choices=Source.choices, default=Source.MANUAL)
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.PENDING
+    )
+    source = models.CharField(
+        max_length=20, choices=Source.choices, default=Source.MANUAL
+    )
     requested_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -43,17 +42,16 @@ class RefillRequest(models.Model):
         ordering = ("-requested_at",)
 
     def __str__(self):
-        return f"{self.household} / {self.cylinder} / {self.status}"
+        return f"{self.household} / {self.assigned_technician or 'Unassigned'} / {self.status}"
 
     def clean(self):
         errors = {}
-        if self.cylinder_id and self.household_id:
-            if self.cylinder.household_id != self.household_id:
-                errors["cylinder"] = "The cylinder must belong to the selected household."
         if self.assigned_technician_id:
             technician = self.assigned_technician
             if technician.role != "technician" or not technician.is_active:
-                errors["assigned_technician"] = "The refill provider must be an active technician."
+                errors["assigned_technician"] = (
+                    "The refill provider must be an active technician."
+                )
         if errors:
             raise ValidationError(errors)
 
@@ -67,7 +65,9 @@ class RefillRequest(models.Model):
         }
         if status not in transitions.get(self.status, set()):
             raise ValidationError(
-                {"status": f"Cannot move a refill request from {self.status} to {status}."}
+                {
+                    "status": f"Cannot move a refill request from {self.status} to {status}."
+                }
             )
         self.status = status
         return self

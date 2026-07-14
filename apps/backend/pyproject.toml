@@ -18,4 +18,4 @@ select = ["E", "F", "I", "UP", "B", "DJ"]
 DJANGO_SETTINGS_MODULE = "config.settings"
 python_files = ["test_*.py", "*_tests.py", "tests.py"]
 addopts = "--strict-markers --disable-warnings --cov=. --cov-report=term-missing --cov-fail-under=20"
-testpaths = ["tests", "accounts", "alerts", "devices", "refills", "service_providers", "telemetry"]
+testpaths = ["tests", "accounts", "alerts", "devices", "refills", "telemetry"]
