@@ -21,11 +21,6 @@ class RefillRequest(models.Model):
         on_delete=models.PROTECT,
         related_name="refill_requests",
     )
-    cylinder = models.ForeignKey(
-        "devices.Cylinder",
-        on_delete=models.PROTECT,
-        related_name="refill_requests",
-    )
     assigned_technician = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -43,13 +38,10 @@ class RefillRequest(models.Model):
         ordering = ("-requested_at",)
 
     def __str__(self):
-        return f"{self.household} / {self.cylinder} / {self.status}"
+        return f"{self.household} / {self.assigned_technician or 'Unassigned'} / {self.status}"
 
     def clean(self):
         errors = {}
-        if self.cylinder_id and self.household_id:
-            if self.cylinder.household_id != self.household_id:
-                errors["cylinder"] = "The cylinder must belong to the selected household."
         if self.assigned_technician_id:
             technician = self.assigned_technician
             if technician.role != "technician" or not technician.is_active:
