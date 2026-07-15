@@ -18,6 +18,35 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+/**
+ * Browser wallet extensions inject scripts into every page, including apps that
+ * do not use Web3. Some versions reject a provider connection promise without
+ * handling it when the companion extension is unavailable. Keep that external
+ * rejection out of the app's error overlay without hiding real auth failures.
+ */
+export function isInjectedWalletError(reason: unknown): boolean {
+  const messages: string[] = [];
+  const visited = new Set<object>();
+
+  let current: unknown = reason;
+  while (current && (typeof current === "object" || typeof current === "string")) {
+    if (typeof current === "string") {
+      messages.push(current);
+      break;
+    }
+    if (visited.has(current)) break;
+    visited.add(current);
+
+    const error = current as { message?: unknown; cause?: unknown };
+    if (typeof error.message === "string") messages.push(error.message);
+    current = error.cause;
+  }
+
+  return messages.some((message) =>
+    /failed to connect to metamask|metamask extension not found/i.test(message),
+  );
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -28,14 +57,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    const ignoreInjectedWalletFailure = (event: PromiseRejectionEvent) => {
+      if (isInjectedWalletError(event.reason)) event.preventDefault();
+    };
     const load = async () => {
       if (!localStorage.getItem("lpg_access_token")) return setLoading(false);
       try { setUser((await api.get<User>("/users/me/")).data); } catch { clear(); }
       finally { setLoading(false); }
     };
     load();
+    window.addEventListener("unhandledrejection", ignoreInjectedWalletFailure);
     window.addEventListener("lpg:unauthorized", clear);
-    return () => window.removeEventListener("lpg:unauthorized", clear);
+    return () => {
+      window.removeEventListener("unhandledrejection", ignoreInjectedWalletFailure);
+      window.removeEventListener("lpg:unauthorized", clear);
+    };
   }, [clear]);
 
   const login = async (email: string, password: string) => {
