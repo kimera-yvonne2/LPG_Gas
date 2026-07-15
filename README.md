@@ -76,6 +76,14 @@ npm run build
 npm --workspace @lpg-guardian/frontend run start
 ```
 
+## Analytics dashboard
+
+The responsive analytics dashboard is available at `/analytics` for authenticated users with access to telemetry. It reads the approved `GET /api/v1/readings/?ordering=timestamp&page_size=100` endpoint through TanStack Query and presents current gas, weight, safety, and historical trends.
+
+Charts are lazy-loaded to keep the initial route bundle small. Each chart has an accessible text summary and a recent-telemetry table for nonvisual access. API failures expose a retry action; `401` and `403` responses use a permission-safe message without showing backend details.
+
+No new backend endpoint, stored data, or migration is introduced. To roll back the UI, revert the frontend analytics page and telemetry chart component; existing telemetry APIs and authentication behavior remain unchanged.
+
 ## Quality commands
 
 ```bash

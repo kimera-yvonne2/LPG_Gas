@@ -19,7 +19,7 @@ import { useState } from "react";
 import { useAuth, type Role } from "@/lib/auth";
 
 const navigation: { href: string; label: string; icon: typeof Gauge; roles: Role[] }[] = [
-  { href: "/", label: "Dashboard", icon: Gauge, roles: ["admin", "technician", "household"] },
+  { href: "/dashboard", label: "Dashboard", icon: Gauge, roles: ["admin", "technician", "household"] },
   { href: "/analytics", label: "Analytics", icon: BarChart3, roles: ["admin", "household"] },
   { href: "/cylinders", label: "Cylinders & Devices", icon: ShieldCheck, roles: ["admin", "household"] },
   { href: "/refills", label: "Refill Providers", icon: Truck, roles: ["household"] },
