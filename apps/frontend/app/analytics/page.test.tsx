@@ -2,12 +2,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Reading } from "@/lib/domain";
+import { telemetryErrorMessage, toTelemetryPoints } from "@/lib/telemetry";
 
 const { get } = vi.hoisted(() => ({ get: vi.fn() }));
 vi.mock("@/lib/api", () => ({ api: { get } }));
 vi.mock("next/dynamic", () => ({ default: () => () => <div data-testid="lazy-chart" /> }));
 
-import AnalyticsPage, { errorMessage, toTelemetryPoints } from "./page";
+import AnalyticsPage from "./page";
 
 const reading = (overrides: Partial<Reading> = {}): Reading => ({ id: 1, sensor: 1, cylinder: 1, esp32_id: "ESP-1", cylinder_serial_number: "CYL-1", timestamp: "2026-07-14T08:30:00Z", weight: "12.5", gas_percentage: "55", temperature: "26", signal_strength: -64, gas_leak_detected: false, ...overrides });
 
@@ -30,7 +31,7 @@ describe("AnalyticsPage", () => {
   });
 
   it("explains an authorization failure without exposing backend details", () => {
-    expect(errorMessage(Object.assign(new Error("Forbidden"), { isAxiosError: true, response: { status: 403 } }))).toBe("You don’t have permission to view telemetry analytics.");
+    expect(telemetryErrorMessage(Object.assign(new Error("Forbidden"), { isAxiosError: true, response: { status: 403 } }))).toBe("You don’t have permission to view telemetry analytics.");
   });
 
   it("filters malformed readings instead of charting invalid values", () => {
