@@ -1,7 +1,7 @@
 "use client";
 
 import { Line, LineChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import type { TelemetryPoint } from "@/app/analytics/page";
+import type { TelemetryPoint } from "@/lib/telemetry";
 
 export default function TelemetryChart({ points }: { points: TelemetryPoint[] }) {
   const chartPoints = points.length > 40 ? points.filter((_, index) => index % Math.ceil(points.length / 40) === 0 || index === points.length - 1) : points;
