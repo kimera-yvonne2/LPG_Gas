@@ -89,7 +89,7 @@ function HouseholdRefillsPage() {
 
     <section className="card p-5">
       <div className="relative max-w-xl">
-        <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
+        <Search className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
         <label className="sr-only" htmlFor="provider-search">Search refill providers</label>
         <input
           id="provider-search"
