@@ -7,11 +7,7 @@ from rest_framework.response import Response
 
 from devices.filters import CylinderFilter, HouseholdFilter, SensorFilter
 from devices.models import Cylinder, Household, Sensor
-from devices.permissions import (
-    CylinderPermission,
-    HouseholdPermission,
-    SensorPermission,
-)
+from devices.permissions import CylinderPermission, HouseholdPermission, SensorPermission
 from devices.selectors import cylinder_list_for, household_list_for, sensor_list_for
 from devices.serializers import (
     CylinderReplacementSerializer,
@@ -80,17 +76,15 @@ class CylinderViewSet(AssetViewSet):
     permission_classes = (CylinderPermission,)
     filterset_class = CylinderFilter
     search_fields = (
-        "serial_number",
         "household__owner__username",
         "household__owner__email",
     )
     ordering_fields = (
-        "serial_number",
         "capacity",
         "gas_percentage",
         "installation_date",
     )
-    ordering = ("serial_number",)
+    ordering = ("-created_at",)
 
     def get_queryset(self):
         return cylinder_list_for(self.request.user, self.request)
@@ -132,7 +126,6 @@ class SensorViewSet(AssetViewSet):
         "esp32_id",
         "mac_address",
         "firmware_version",
-        "cylinder__serial_number",
     )
     ordering_fields = ("esp32_id", "battery_level", "last_seen", "created_at")
     ordering = ("esp32_id",)

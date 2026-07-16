@@ -49,8 +49,7 @@ def technician():
 def cylinder(household):
     return Cylinder.objects.create(
         household=household,
-        serial_number="CYL-REFILL",
-        capacity=Decimal("12.000"),
+        capacity=Decimal("6.000"),
         empty_weight=Decimal("8.000"),
         current_weight=Decimal("10.500"),
         installation_date=timezone.localdate(),

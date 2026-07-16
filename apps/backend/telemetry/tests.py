@@ -37,8 +37,7 @@ def asset_graph():
     household = Household.objects.create(owner=owner)
     cylinder = Cylinder.objects.create(
         household=household,
-        serial_number="CYL-READ",
-        capacity=Decimal("10.000"),
+        capacity=Decimal("6.000"),
         empty_weight=Decimal("5.000"),
         current_weight=Decimal("10.000"),
         installation_date=timezone.localdate(),
@@ -87,7 +86,7 @@ def test_technician_creates_reading_and_updates_cylinder(api_client, asset_graph
         {
             "sensor": sensor.id,
             "timestamp": (timezone.now() - timedelta(seconds=1)).isoformat(),
-            "weight": "7.500",
+            "weight": "6.500",
             "temperature": "28.50",
             "signal_strength": -55,
             "gas_leak_detected": True,
@@ -99,7 +98,7 @@ def test_technician_creates_reading_and_updates_cylinder(api_client, asset_graph
     assert response.data["cylinder"] == cylinder.id
     assert response.data["gas_leak_detected"] is True
     cylinder.refresh_from_db()
-    assert cylinder.current_weight == Decimal("7.500")
+    assert cylinder.current_weight == Decimal("6.500")
     assert cylinder.gas_percentage == Decimal("25.00")
 
 
@@ -422,8 +421,7 @@ def test_household_cannot_view_another_households_depletion_estimate(
     other_household = Household.objects.create(owner=other_owner)
     other_cylinder = Cylinder.objects.create(
         household=other_household,
-        serial_number="CYL-OTHER",
-        capacity=Decimal("10.000"),
+        capacity=Decimal("6.000"),
         empty_weight=Decimal("5.000"),
         current_weight=Decimal("9.000"),
         installation_date=timezone.localdate(),

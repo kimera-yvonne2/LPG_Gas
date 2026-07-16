@@ -15,5 +15,5 @@ class ReadingAdmin(admin.ModelAdmin):
         "signal_strength",
     )
     list_filter = ("gas_leak_detected", "timestamp")
-    search_fields = ("sensor__esp32_id", "cylinder__serial_number")
+    search_fields = ("sensor__esp32_id",)
     readonly_fields = ("created_at",)
