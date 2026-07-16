@@ -8,6 +8,11 @@ describe("postLoginPath", () => {
     expect(postLoginPath("/auth/login")).toBe("/dashboard");
   });
 
+  it("sends technicians directly to refill requests", () => {
+    expect(postLoginPath(null, "technician")).toBe("/refills");
+    expect(postLoginPath("/dashboard", "technician")).toBe("/refills");
+  });
+
   it("preserves safe protected destinations", () => {
     expect(postLoginPath("/cylinders?filter=active")).toBe("/cylinders?filter=active");
   });

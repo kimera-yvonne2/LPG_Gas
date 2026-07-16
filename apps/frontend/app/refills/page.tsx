@@ -17,7 +17,7 @@ import {
 
 export default function RefillsPage() {
   const { user } = useAuth();
-  if (user?.role === "technician") return <TechnicianRequestQueue />;
+  if (user?.role === "technician" || user?.role === "admin") return <TechnicianRequestQueue admin={user.role === "admin"} />;
   return <HouseholdRefillsPage />;
 }
 
@@ -199,7 +199,7 @@ function HouseholdRefillsPage() {
   </div>;
 }
 
-function TechnicianRequestQueue() {
+function TechnicianRequestQueue({ admin = false }: { admin?: boolean }) {
   const client = useQueryClient();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"all" | RefillStatus>("all");
@@ -240,8 +240,8 @@ function TechnicianRequestQueue() {
 
   return <div className="mx-auto max-w-[1180px]">
     <PageHeading
-      title="Refill Requests"
-      subtitle="Review and process refill requests assigned to your provider account."
+      title={admin ? "Refill Operations" : "Refill Requests"}
+      subtitle={admin ? "Review and manage refill requests across every household and technician." : "Review and process refill requests assigned to your provider account."}
     />
 
     <section className="card p-5">

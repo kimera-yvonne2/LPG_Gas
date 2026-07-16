@@ -8,14 +8,15 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { ApiList, Cylinder, Reading, Sensor, rows } from "@/lib/domain";
+import { AdminDashboard } from "@/components/admin-dashboard";
 
 export default function DashboardPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && user && user.role !== "household") {
-      router.replace(user.role === "technician" ? "/refills" : "/analytics");
+    if (!loading && user?.role === "technician") {
+      router.replace("/refills");
     }
   }, [loading, router, user]);
 
@@ -38,13 +39,17 @@ export default function DashboardPage() {
     staleTime: 30_000,
   });
 
-  if (loading || !user || user.role !== "household") {
+  if (loading || !user) {
     return (
       <div className="grid min-h-64 place-items-center text-sm font-bold text-[#073b82]">
         Loading your dashboard…
       </div>
     );
   }
+
+  if (user.role === "admin") return <AdminDashboard username={user.username} />;
+
+  if (user.role !== "household") return null;
 
   const cylinders = dashboardQuery.data?.cylinders ?? [];
   const sensors = dashboardQuery.data?.sensors ?? [];

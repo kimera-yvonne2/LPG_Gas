@@ -2,12 +2,21 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, CheckCircle2, Thermometer, Weight } from "lucide-react";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { PageHeading } from "@/components/ui-kit";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { ApiList, Reading, rows } from "@/lib/domain";
 
 export default function AlertsPage() {
-  const query = useQuery({ queryKey: ["readings", "alerts"], queryFn: async () => (await api.get<ApiList<Reading>>("/readings/?ordering=-timestamp&page_size=100")).data });
+  const { user, loading } = useAuth();
+  const router = useRouter();
+  useEffect(() => {
+    if (!loading && user?.role === "admin") router.replace("/dashboard");
+  }, [loading, router, user]);
+  const query = useQuery({ queryKey: ["readings", "alerts"], enabled: user?.role === "household", queryFn: async () => (await api.get<ApiList<Reading>>("/readings/?ordering=-timestamp&page_size=100")).data });
+  if (loading || user?.role !== "household") return null;
   const alerts = rows(query.data).flatMap(reading => {
     const items: { key: string; title: string; text: string; timestamp: string; severity: "critical" | "warning" }[] = [];
     if (reading.gas_leak_detected) items.push({ key: `${reading.id}-leak`, title: "Gas leak detected", text: `${reading.cylinder_serial_number} reported a gas leak.`, timestamp: reading.timestamp, severity: "critical" });
