@@ -32,11 +32,10 @@ class Cylinder(models.Model):
         RETIRED = "retired", "Retired"
 
     household = models.ForeignKey(Household, on_delete=models.PROTECT, related_name="cylinders")
-    serial_number = models.CharField(max_length=100, unique=True)
     capacity = models.DecimalField(
         max_digits=8,
         decimal_places=3,
-        validators=[MinValueValidator(Decimal("0.001"))],
+        choices=((Decimal("3.000"), "3 kg"), (Decimal("6.000"), "6 kg")),
         help_text="Usable LPG capacity in kilograms.",
     )
     empty_weight = models.DecimalField(
@@ -58,14 +57,14 @@ class Cylinder(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ("serial_number",)
+        ordering = ("-created_at",)
         indexes = [
             models.Index(fields=("household", "status"), name="cylinder_owner_status_idx"),
             models.Index(fields=("installation_date",), name="cylinder_install_idx"),
         ]
 
     def __str__(self):
-        return self.serial_number
+        return f"Cylinder {self.pk or 'new'} ({self.capacity} kg)"
 
     def save(self, *args, **kwargs):
         self.full_clean(exclude=("gas_percentage",))

@@ -70,10 +70,9 @@ def household(household_user):
 def cylinder(household):
     return Cylinder.objects.create(
         household=household,
-        serial_number="CYL-0001",
-        capacity=Decimal("12.000"),
+        capacity=Decimal("6.000"),
         empty_weight=Decimal("8.000"),
-        current_weight=Decimal("14.000"),
+        current_weight=Decimal("11.000"),
         installation_date=timezone.localdate() - timedelta(days=1),
         status=Cylinder.Status.ACTIVE,
     )
@@ -106,10 +105,9 @@ def test_household_list_is_paginated_and_owner_scoped(api_client, household, oth
 def test_cylinder_calculates_percentage_and_empty_status(household):
     cylinder = Cylinder.objects.create(
         household=household,
-        serial_number="CYL-CALC",
-        capacity=Decimal("10.000"),
+        capacity=Decimal("6.000"),
         empty_weight=Decimal("5.000"),
-        current_weight=Decimal("7.500"),
+        current_weight=Decimal("6.500"),
         installation_date=timezone.localdate(),
     )
     assert cylinder.gas_percentage == Decimal("25.00")
@@ -121,22 +119,20 @@ def test_cylinder_calculates_percentage_and_empty_status(household):
     assert cylinder.status == Cylinder.Status.EMPTY
 
 
-def test_cylinder_api_rejects_invalid_weight(api_client, household):
+def test_cylinder_api_rejects_full_weight_below_capacity(api_client, household):
     authenticate(api_client, household.owner)
     response = api_client.post(
         reverse("v1:devices:cylinder-list"),
         {
-            "serial_number": "CYL-BAD",
-            "capacity": "12.000",
-            "empty_weight": "8.000",
-            "current_weight": "7.000",
+            "capacity": "6.000",
+            "full_weight": "5.000",
             "installation_date": str(timezone.localdate()),
             "status": Cylinder.Status.ACTIVE,
         },
         format="json",
     )
     assert response.status_code == 400
-    assert "current_weight" in response.data["detail"]
+    assert "full_weight" in response.data["detail"]
 
 
 def test_household_cylinder_is_automatically_assigned_without_household_id(api_client, household):
@@ -145,10 +141,8 @@ def test_household_cylinder_is_automatically_assigned_without_household_id(api_c
     response = api_client.post(
         reverse("v1:devices:cylinder-list"),
         {
-            "serial_number": "CYL-AUTO-HOUSEHOLD",
-            "capacity": "12.000",
-            "empty_weight": "8.000",
-            "current_weight": "14.000",
+            "capacity": "6.000",
+            "full_weight": "14.000",
             "installation_date": str(timezone.localdate()),
             "status": Cylinder.Status.ACTIVE,
         },
@@ -169,10 +163,8 @@ def test_household_cannot_override_automatic_cylinder_household(
         reverse("v1:devices:cylinder-list"),
         {
             "household": other_household.id,
-            "serial_number": "CYL-IGNORE-HOUSEHOLD",
-            "capacity": "12.000",
-            "empty_weight": "8.000",
-            "current_weight": "14.000",
+            "capacity": "6.000",
+            "full_weight": "14.000",
             "installation_date": str(timezone.localdate()),
             "status": Cylinder.Status.ACTIVE,
         },
@@ -189,10 +181,8 @@ def test_admin_cylinder_creation_still_requires_household(api_client, admin_user
     response = api_client.post(
         reverse("v1:devices:cylinder-list"),
         {
-            "serial_number": "CYL-ADMIN-NO-HOUSEHOLD",
-            "capacity": "12.000",
-            "empty_weight": "8.000",
-            "current_weight": "14.000",
+            "capacity": "6.000",
+            "full_weight": "14.000",
             "installation_date": str(timezone.localdate()),
             "status": Cylinder.Status.ACTIVE,
         },
@@ -443,10 +433,8 @@ def test_replacing_cylinder_moves_device_and_preserves_reading_snapshot(api_clie
     response = api_client.post(
         reverse("v1:devices:cylinder-replace", args=[cylinder.id]),
         {
-            "serial_number": "CYL-REPLACEMENT",
-            "capacity": "12.000",
-            "empty_weight": "8.000",
-            "current_weight": "20.000",
+            "capacity": "6.000",
+            "full_weight": "14.000",
             "installation_date": str(timezone.localdate()),
         },
         format="json",

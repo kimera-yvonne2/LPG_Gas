@@ -144,4 +144,4 @@ class DepletionEstimate(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.cylinder.serial_number} - " f"{self.status} - " f"{self.model_version}"
+        return f"Cylinder {self.cylinder_id} - {self.status} - {self.model_version}"

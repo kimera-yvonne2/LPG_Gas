@@ -29,7 +29,7 @@ class ReadingViewSet(
         filters.OrderingFilter,
     )
     filterset_class = ReadingFilter
-    search_fields = ("sensor__esp32_id", "cylinder__serial_number")
+    search_fields = ("sensor__esp32_id",)
     ordering_fields = (
         "timestamp",
         "weight",
