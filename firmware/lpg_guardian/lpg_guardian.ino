@@ -755,7 +755,7 @@ bool sendTelemetry() {
   JsonDocument payload;
   payload["message_id"] = makeMessageId();
   if (weightValid) {
-    payload["weight"] = currentGrossWeight;
+    payload["weight"] = roundf(currentGrossWeight * 1000.0f) / 1000.0f;
   } else {
     payload["weight"] = nullptr;
   }

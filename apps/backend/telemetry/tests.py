@@ -93,7 +93,7 @@ def test_device_ingests_telemetry_and_updates_presence(api_client, asset_graph):
         reverse("v1:telemetry:device-telemetry"),
         {
             "message_id": "ESP32-READING-BOOT2-0001",
-            "weight": "8.250",
+            "weight": "8.250123",
             "mq2_raw": 850,
             "mq2_ready": True,
             "gas_leak_detected": False,
@@ -106,6 +106,7 @@ def test_device_ingests_telemetry_and_updates_presence(api_client, asset_graph):
     assert response.status_code == 201
     assert response.data["cylinder"] == cylinder.id
     assert response.data["gas_percentage"] == "54.17"
+    assert response.data["weight"] == "8.250"
     assert response.data["duplicate"] is False
     sensor.refresh_from_db()
     assert sensor.online_status is True
