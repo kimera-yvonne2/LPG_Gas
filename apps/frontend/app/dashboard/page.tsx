@@ -37,6 +37,7 @@ export default function DashboardPage() {
       };
     },
     staleTime: 30_000,
+    refetchInterval: 10_000,
   });
 
   if (loading || !user) {

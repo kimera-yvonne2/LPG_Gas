@@ -40,6 +40,7 @@ export default function CylindersPage() {
   const cylindersQuery = useQuery({
     queryKey: ["cylinders"],
     queryFn: async () => (await api.get<ApiList<Cylinder>>("/cylinders/")).data,
+    refetchInterval: 10_000,
   });
   const householdsQuery = useQuery({
     queryKey: ["households"],
@@ -50,6 +51,7 @@ export default function CylindersPage() {
   const sensorsQuery = useQuery({
     queryKey: ["sensors"],
     queryFn: async () => (await api.get<ApiList<Sensor>>("/sensors/")).data,
+    refetchInterval: 10_000,
   });
   const cylinders = rows(cylindersQuery.data);
   const households = rows(householdsQuery.data);
