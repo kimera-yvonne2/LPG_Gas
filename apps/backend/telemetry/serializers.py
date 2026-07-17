@@ -1,3 +1,5 @@
+from decimal import ROUND_HALF_UP, Decimal
+
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
@@ -55,7 +57,7 @@ class ReadingSerializer(serializers.ModelSerializer):
 class DeviceTelemetrySerializer(serializers.Serializer):
     message_id = serializers.CharField(max_length=100)
     weight = serializers.DecimalField(
-        max_digits=8, decimal_places=3, allow_null=True, required=True
+        max_digits=12, decimal_places=6, allow_null=True, required=True
     )
     mq2_raw = serializers.IntegerField(min_value=0, max_value=4095)
     mq2_ready = serializers.BooleanField()
@@ -67,6 +69,11 @@ class DeviceTelemetrySerializer(serializers.Serializer):
         if not value:
             raise serializers.ValidationError("This field may not be blank.")
         return value
+
+    def validate_weight(self, value):
+        if value is None:
+            return None
+        return value.quantize(Decimal("0.001"), rounding=ROUND_HALF_UP)
 
     def validate(self, attrs):
         sensor = self.context["sensor"]
