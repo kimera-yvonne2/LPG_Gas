@@ -22,13 +22,14 @@ def cylinder_list_for(user: User, request: Any | None = None) -> QuerySet[Cylind
     from telemetry.models import Reading
 
     latest_reading = Reading.objects.filter(cylinder=OuterRef("pk")).order_by("-timestamp")
+    latest_weight_reading = latest_reading.filter(weight__isnull=False)
     queryset = Cylinder.objects.select_related("household", "household__owner").annotate(
         latest_weight=Subquery(
-            latest_reading.values("weight")[:1],
+            latest_weight_reading.values("weight")[:1],
             output_field=DecimalField(max_digits=8, decimal_places=3),
         ),
         latest_gas_percentage=Subquery(
-            latest_reading.values("gas_percentage")[:1],
+            latest_weight_reading.values("gas_percentage")[:1],
             output_field=DecimalField(max_digits=5, decimal_places=2),
         ),
         latest_reading_at=Subquery(
