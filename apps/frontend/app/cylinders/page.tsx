@@ -23,13 +23,7 @@ const emptyReplacement = () => ({
   full_weight: "",
   installation_date: today(),
 });
-const emptyDevice = () => ({
-  cylinder: "",
-  esp32_id: "",
-  firmware_version: "1.0.0",
-  mac_address: "",
-  battery_level: "100.00",
-});
+const emptyPairing = () => ({ pairing_code: "", household: "" });
 
 export default function CylindersPage() {
   const { user } = useAuth();
@@ -40,7 +34,7 @@ export default function CylindersPage() {
   const [connectTarget, setConnectTarget] = useState<Sensor | null>(null);
   const [cylinderForm, setCylinderForm] = useState(emptyCylinder);
   const [replacementForm, setReplacementForm] = useState(emptyReplacement);
-  const [deviceForm, setDeviceForm] = useState(emptyDevice);
+  const [pairingForm, setPairingForm] = useState(emptyPairing);
   const [connectCylinder, setConnectCylinder] = useState("");
 
   const cylindersQuery = useQuery({
@@ -83,20 +77,20 @@ export default function CylindersPage() {
       setCylinderOpen(false);
     },
   });
-  const registerDevice = useMutation({
+  const claimDevice = useMutation({
     mutationFn: async () => {
-      const { cylinder, ...data } = deviceForm;
       return (
-        await api.post("/sensors/", {
-          ...data,
-          ...(cylinder ? { cylinder: Number(cylinder) } : {}),
-          online_status: false,
+        await api.post("/devices/claim/", {
+          pairing_code: pairingForm.pairing_code,
+          ...(user?.role === "admin"
+            ? { household: Number(pairingForm.household) }
+            : {}),
         })
       ).data;
     },
     onSuccess: async () => {
       await refreshAssets();
-      setDeviceForm(emptyDevice());
+      setPairingForm(emptyPairing());
       setDeviceOpen(false);
     },
   });
@@ -132,9 +126,9 @@ export default function CylindersPage() {
       (await api.post(`/sensors/${id}/disconnect/`)).data,
     onSuccess: refreshAssets,
   });
-  const removeDevice = useMutation({
+  const unpairDevice = useMutation({
     mutationFn: async (id: number) =>
-      (await api.delete(`/sensors/${id}/`)).data,
+      (await api.post(`/sensors/${id}/unpair/`)).data,
     onSuccess: refreshAssets,
   });
   const removeCylinder = useMutation({
@@ -143,12 +137,9 @@ export default function CylindersPage() {
     onSuccess: refreshAssets,
   });
 
-  const openDeviceRegistration = (cylinder?: Cylinder) => {
-    setDeviceForm({
-      ...emptyDevice(),
-      cylinder: cylinder ? String(cylinder.id) : "",
-    });
-    registerDevice.reset();
+  const openDeviceRegistration = () => {
+    setPairingForm(emptyPairing());
+    claimDevice.reset();
     setDeviceOpen(true);
   };
   const confirmCylinderRemoval = (cylinder: Cylinder) => {
@@ -162,10 +153,10 @@ export default function CylindersPage() {
   const confirmDeviceRemoval = (sensor: Sensor) => {
     if (
       window.confirm(
-        `Remove device ${sensor.esp32_id}? Historical readings will be preserved.`,
+        `Unpair device ${sensor.esp32_id} from this household? Historical readings will be preserved and the device can be paired again.`,
       )
     )
-      removeDevice.mutate(sensor.id);
+      unpairDevice.mutate(sensor.id);
   };
 
   return (
@@ -180,7 +171,7 @@ export default function CylindersPage() {
                 onClick={() => openDeviceRegistration()}
                 className="btn-secondary"
               >
-                <Plus size={15} /> Register Device
+                <Plus size={15} /> Pair Device
               </button>
               <button
                 onClick={() => {
@@ -211,7 +202,7 @@ export default function CylindersPage() {
               className="btn-primary"
               onClick={() => openDeviceRegistration()}
             >
-              <Plus size={15} /> Register New Device
+              <Plus size={15} /> Pair New Device
             </button>
           )}
         </div>
@@ -258,7 +249,7 @@ export default function CylindersPage() {
                 </div>
                 <div className="mt-5 grid items-center gap-5 sm:grid-cols-[150px_1fr]">
                   <GasRing
-                    value={Math.round(Number(cylinder.gas_percentage))}
+                    value={Math.round(Number(cylinder.latest_gas_percentage ?? 0))}
                     size={145}
                   />
                   <div>
@@ -269,7 +260,7 @@ export default function CylindersPage() {
                       />
                       <Datum
                         label="Current weight"
-                        value={`${cylinder.current_weight} kg`}
+                        value={cylinder.latest_weight ? `${cylinder.latest_weight} kg` : "Waiting for device"}
                       />
                       <Datum
                         label="Installed"
@@ -287,7 +278,7 @@ export default function CylindersPage() {
                         {!sensor && (
                           <button
                             className="btn-secondary"
-                            onClick={() => openDeviceRegistration(cylinder)}
+                            onClick={() => openDeviceRegistration()}
                           >
                             <Link2 size={14} /> Add Device
                           </button>
@@ -322,7 +313,7 @@ export default function CylindersPage() {
         {sensorsQuery.isLoading ? (
           <Empty text="Loading devices…" />
         ) : !sensors.length ? (
-          <Empty text="No monitoring devices are registered." />
+          <Empty text="No monitoring devices are paired." />
         ) : (
           <div className="grid gap-3 md:grid-cols-2">
             {sensors.map((sensor) => (
@@ -368,7 +359,7 @@ export default function CylindersPage() {
                       className="btn-secondary text-red-700"
                       onClick={() => confirmDeviceRemoval(sensor)}
                     >
-                      <Trash2 size={14} /> Remove Device
+                      <Trash2 size={14} /> Unpair Device
                     </button>
                   </div>
                 )}
@@ -429,76 +420,68 @@ export default function CylindersPage() {
       </Modal>
       <Modal
         open={deviceOpen}
-        title="Register Monitoring Device"
+        title="Pair Monitoring Device"
         onClose={() => setDeviceOpen(false)}
       >
         <form
           onSubmit={(event: FormEvent) => {
             event.preventDefault();
-            registerDevice.mutate();
+            claimDevice.mutate();
           }}
-          className="grid gap-4 sm:grid-cols-2"
+          className="grid gap-4"
         >
-          <div className="sm:col-span-2">
-            <label className="label">Current cylinder (optional)</label>
+          <p className="text-sm text-slate-600">
+            Turn on the LPG Guardian, connect it to Wi-Fi, then enter the
+            six-digit pairing code shown on its OLED.
+          </p>
+          {user?.role === "admin" && (
+          <div>
+            <label className="label">Household</label>
             <select
+              required
               className="field"
-              value={deviceForm.cylinder}
+              value={pairingForm.household}
               onChange={(event) =>
-                setDeviceForm({ ...deviceForm, cylinder: event.target.value })
+                setPairingForm({ ...pairingForm, household: event.target.value })
               }
             >
-              <option value="">Register disconnected</option>
-              {cylinders
-                .filter(
-                  (cylinder) =>
-                    !sensors.some((sensor) => sensor.cylinder === cylinder.id),
-                )
-                .map((cylinder) => (
-                  <option key={cylinder.id} value={cylinder.id}>
-                    Cylinder #{cylinder.id} ({Number(cylinder.capacity)} kg)
-                  </option>
-                ))}
+              <option value="">Select household</option>
+              {households.map((household) => (
+                <option key={household.id} value={household.id}>
+                  {household.owner_name}
+                </option>
+              ))}
             </select>
           </div>
-          {(
-            [
-              "esp32_id",
-              "firmware_version",
-              "mac_address",
-              "battery_level",
-            ] as const
-          ).map((name) => (
-            <div key={name}>
-              <label className="label capitalize">
-                {name.replaceAll("_", " ")}
-              </label>
-              <input
-                required
-                className="field"
-                type={name === "battery_level" ? "number" : "text"}
-                min={name === "battery_level" ? 0 : undefined}
-                max={name === "battery_level" ? 100 : undefined}
-                step={name === "battery_level" ? "0.01" : undefined}
-                placeholder={
-                  name === "mac_address" ? "AA:BB:CC:DD:EE:FF" : undefined
-                }
-                value={deviceForm[name]}
-                onChange={(event) =>
-                  setDeviceForm({ ...deviceForm, [name]: event.target.value })
-                }
-              />
-            </div>
-          ))}
-          {registerDevice.isError && (
+          )}
+          <div>
+            <label className="label">Pairing code</label>
+            <input
+              required
+              className="field font-mono tracking-[0.35em]"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              pattern="[0-9]{6}"
+              placeholder="000000"
+              value={pairingForm.pairing_code}
+              onChange={(event) =>
+                setPairingForm({
+                  ...pairingForm,
+                  pairing_code: event.target.value.replace(/\D/g, "").slice(0, 6),
+                })
+              }
+            />
+          </div>
+          {claimDevice.isError && (
             <ErrorText
-              error={registerDevice.error}
-              fallback="The device could not be registered."
+              error={claimDevice.error}
+              fallback="The device could not be paired. Check that the code has not expired."
             />
           )}
           <ModalButtons
-            busy={registerDevice.isPending}
-            label="Register Device"
+            busy={claimDevice.isPending}
+            label="Pair Device"
             onCancel={() => setDeviceOpen(false)}
           />
         </form>

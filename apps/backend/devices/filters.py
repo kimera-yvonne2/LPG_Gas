@@ -12,8 +12,6 @@ class HouseholdFilter(django_filters.FilterSet):
 class CylinderFilter(django_filters.FilterSet):
     capacity_min = django_filters.NumberFilter(field_name="capacity", lookup_expr="gte")
     capacity_max = django_filters.NumberFilter(field_name="capacity", lookup_expr="lte")
-    gas_percentage_min = django_filters.NumberFilter(field_name="gas_percentage", lookup_expr="gte")
-    gas_percentage_max = django_filters.NumberFilter(field_name="gas_percentage", lookup_expr="lte")
     installed_after = django_filters.DateFilter(field_name="installation_date", lookup_expr="gte")
     installed_before = django_filters.DateFilter(field_name="installation_date", lookup_expr="lte")
 
@@ -24,8 +22,6 @@ class CylinderFilter(django_filters.FilterSet):
             "status",
             "capacity_min",
             "capacity_max",
-            "gas_percentage_min",
-            "gas_percentage_max",
             "installed_after",
             "installed_before",
         )
@@ -42,7 +38,6 @@ class SensorFilter(django_filters.FilterSet):
             "cylinder",
             "is_active",
             "online_status",
-            "firmware_version",
             "battery_min",
             "last_seen_after",
         )

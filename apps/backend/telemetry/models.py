@@ -1,3 +1,4 @@
+import uuid
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
@@ -8,6 +9,10 @@ from django.utils import timezone
 from devices.models import Cylinder, Sensor
 
 
+def generate_message_id():
+    return uuid.uuid4().hex
+
+
 class Reading(models.Model):
     sensor = models.ForeignKey(Sensor, on_delete=models.PROTECT, related_name="readings")
     cylinder = models.ForeignKey(Cylinder, on_delete=models.PROTECT, related_name="readings")
@@ -15,27 +20,26 @@ class Reading(models.Model):
     weight = models.DecimalField(
         max_digits=8,
         decimal_places=3,
+        blank=True,
+        null=True,
         validators=[MinValueValidator(Decimal("0"))],
         help_text="Measured total cylinder weight in kilograms.",
     )
     gas_percentage = models.DecimalField(
         max_digits=5,
         decimal_places=2,
+        blank=True,
+        null=True,
         validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("100"))],
     )
-    temperature = models.DecimalField(
-        max_digits=5,
-        decimal_places=2,
-        validators=[
-            MinValueValidator(Decimal("-40")),
-            MaxValueValidator(Decimal("125")),
-        ],
-        help_text="Sensor temperature in degrees Celsius.",
+    message_id = models.CharField(max_length=100, unique=True, default=generate_message_id)
+    mq2_raw = models.PositiveSmallIntegerField(
+        default=0,
+        validators=[MaxValueValidator(4095)],
+        help_text="Raw 12-bit MQ-2 ADC reading reported by the device.",
     )
-    signal_strength = models.SmallIntegerField(
-        validators=[MinValueValidator(-120), MaxValueValidator(0)],
-        help_text="Wi-Fi RSSI in dBm.",
-    )
+    mq2_ready = models.BooleanField(default=False)
+    hx711_ok = models.BooleanField(default=False)
     gas_leak_detected = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -81,6 +85,8 @@ class Reading(models.Model):
                 raise ValidationError({"weight": "Reading weight exceeds the cylinder capacity."})
 
     def calculate_gas_percentage(self):
+        if self.weight is None:
+            return None
         cylinder = self.cylinder
         gas_weight = max(self.weight - cylinder.empty_weight, Decimal("0"))
         percentage = (gas_weight / cylinder.capacity) * Decimal("100")

@@ -18,8 +18,10 @@ class ReadingSerializer(serializers.ModelSerializer):
             "timestamp",
             "weight",
             "gas_percentage",
-            "temperature",
-            "signal_strength",
+            "message_id",
+            "mq2_raw",
+            "mq2_ready",
+            "hx711_ok",
             "gas_leak_detected",
             "created_at",
         )
@@ -48,6 +50,52 @@ class ReadingSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         return create_reading(**validated_data)
+
+
+class DeviceTelemetrySerializer(serializers.Serializer):
+    message_id = serializers.CharField(max_length=100)
+    weight = serializers.DecimalField(
+        max_digits=8, decimal_places=3, allow_null=True, required=True
+    )
+    mq2_raw = serializers.IntegerField(min_value=0, max_value=4095)
+    mq2_ready = serializers.BooleanField()
+    gas_leak_detected = serializers.BooleanField()
+    hx711_ok = serializers.BooleanField()
+
+    def validate_message_id(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("This field may not be blank.")
+        return value
+
+    def validate(self, attrs):
+        sensor = self.context["sensor"]
+        if not sensor.is_active:
+            raise serializers.ValidationError({"device": "This device is inactive."})
+        if sensor.household_id is None:
+            raise serializers.ValidationError({"device": "Pair this device to a household first."})
+        if sensor.cylinder_id is None:
+            raise serializers.ValidationError(
+                {"device": "Connect this device to a cylinder first."}
+            )
+        if sensor.cylinder.status == sensor.cylinder.Status.RETIRED:
+            raise serializers.ValidationError({"device": "The connected cylinder is retired."})
+        if attrs["hx711_ok"] and attrs["weight"] is None:
+            raise serializers.ValidationError(
+                {"weight": "A valid weight is required when hx711_ok is true."}
+            )
+        if not attrs["mq2_ready"] and attrs["gas_leak_detected"]:
+            raise serializers.ValidationError(
+                {"gas_leak_detected": "A warming MQ-2 sensor cannot report a confirmed leak."}
+            )
+
+        candidate = Reading(sensor=sensor, cylinder=sensor.cylinder, **attrs)
+        candidate.gas_percentage = candidate.calculate_gas_percentage()
+        try:
+            candidate.full_clean(exclude=("timestamp", "message_id"))
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(exc.message_dict) from exc
+        return attrs
 
 
 class DepletionEstimateSerializer(serializers.ModelSerializer):

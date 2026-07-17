@@ -15,12 +15,10 @@ class CylinderAdmin(admin.ModelAdmin):
         "id",
         "household",
         "capacity",
-        "gas_percentage",
         "status",
     )
     list_filter = ("status", "installation_date")
     search_fields = ("household__owner__username",)
-    readonly_fields = ("gas_percentage",)
 
 
 @admin.register(Sensor)
@@ -29,10 +27,9 @@ class SensorAdmin(admin.ModelAdmin):
         "esp32_id",
         "household",
         "cylinder",
-        "firmware_version",
         "battery_level",
         "is_active",
         "online_status",
     )
-    list_filter = ("is_active", "online_status", "firmware_version")
+    list_filter = ("is_active", "online_status")
     search_fields = ("esp32_id", "mac_address")

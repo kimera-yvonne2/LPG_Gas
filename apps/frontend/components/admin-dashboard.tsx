@@ -61,7 +61,8 @@ export function AdminDashboard({ username }: { username: string }) {
   const readings = rows(query.data?.readings);
   const refills = rows(query.data?.refills);
   const urgentReadings = readings.filter(reading =>
-    reading.gas_leak_detected || Number(reading.temperature) >= 60 || Number(reading.gas_percentage) <= 15,
+    reading.gas_leak_detected ||
+    (reading.gas_percentage !== null && Number(reading.gas_percentage) <= 15),
   );
   const openRefills = refills.filter(request => !["completed", "cancelled"].includes(request.status));
 

@@ -51,7 +51,6 @@ def cylinder(household):
         household=household,
         capacity=Decimal("6.000"),
         empty_weight=Decimal("8.000"),
-        current_weight=Decimal("10.500"),
         installation_date=timezone.localdate(),
         status=Cylinder.Status.ACTIVE,
     )

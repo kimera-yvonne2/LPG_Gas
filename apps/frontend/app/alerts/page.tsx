@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, CheckCircle2, Thermometer, Weight } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Weight } from "lucide-react";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { PageHeading } from "@/components/ui-kit";
@@ -43,15 +43,10 @@ export default function AlertsPage() {
         timestamp: reading.timestamp,
         severity: "critical",
       });
-    if (Number(reading.temperature) >= 60)
-      items.push({
-        key: `${reading.id}-temperature`,
-        title: "High sensor temperature",
-        text: `${cylinderLabel} recorded ${reading.temperature}°C.`,
-        timestamp: reading.timestamp,
-        severity: "critical",
-      });
-    if (Number(reading.gas_percentage) <= 15)
+    if (
+      reading.gas_percentage !== null &&
+      Number(reading.gas_percentage) <= 15
+    )
       items.push({
         key: `${reading.id}-gas`,
         title: "Low gas level",
@@ -77,7 +72,7 @@ export default function AlertsPage() {
             <CheckCircle2 className="mx-auto text-green-700" size={35} />
             <h2 className="section-title mt-3">No active telemetry alerts</h2>
             <p className="mt-1 text-xs text-slate-500">
-              No low-gas or high-temperature readings were found.
+              No gas-leak or low-gas readings were found.
             </p>
           </div>
         </div>
@@ -88,14 +83,8 @@ export default function AlertsPage() {
               key={alert.key}
               className={`card flex gap-4 border-l-4 p-4 ${alert.severity === "critical" ? "border-l-red-600" : "border-l-orange-500"}`}
             >
-              <span
-                className={`grid h-9 w-9 place-items-center rounded ${alert.title.includes("temperature") ? "bg-red-50 text-red-700" : "bg-orange-50 text-orange-700"}`}
-              >
-                {alert.title.includes("temperature") ? (
-                  <Thermometer size={18} />
-                ) : (
-                  <Weight size={18} />
-                )}
+              <span className="grid h-9 w-9 place-items-center rounded bg-orange-50 text-orange-700">
+                <Weight size={18} />
               </span>
               <div className="flex-1">
                 <h2 className="text-sm font-extrabold">{alert.title}</h2>
