@@ -6,7 +6,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from devices.authentication import DeviceAuthentication
-
 from telemetry.filters import ReadingFilter
 from telemetry.models import DepletionEstimate, Reading
 from telemetry.permissions import DepletionEstimatePermission, ReadingPermission

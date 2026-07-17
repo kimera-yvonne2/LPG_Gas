@@ -199,9 +199,7 @@ def test_admin_creates_reading_and_cylinder_exposes_latest_telemetry(api_client,
     assert response.data["hx711_ok"] is True
     assert Reading.objects.get(pk=response.data["id"]).weight == Decimal("6.500")
 
-    cylinder_response = api_client.get(
-        reverse("v1:devices:cylinder-detail", args=[cylinder.id])
-    )
+    cylinder_response = api_client.get(reverse("v1:devices:cylinder-detail", args=[cylinder.id]))
     assert cylinder_response.status_code == 200
     assert cylinder_response.data["latest_weight"] == "6.500"
     assert cylinder_response.data["latest_gas_percentage"] == "25.00"

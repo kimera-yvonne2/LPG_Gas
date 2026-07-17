@@ -35,8 +35,10 @@ def create_reading(**data) -> Reading:
         next_status = (
             Cylinder.Status.EMPTY if reading.gas_percentage == 0 else Cylinder.Status.ACTIVE
         )
-    if next_status and cylinder.status in {Cylinder.Status.ACTIVE, Cylinder.Status.EMPTY} and (
-        cylinder.status != next_status
+    if (
+        next_status
+        and cylinder.status in {Cylinder.Status.ACTIVE, Cylinder.Status.EMPTY}
+        and (cylinder.status != next_status)
     ):
         cylinder.status = next_status
         cylinder.save(update_fields=("status", "updated_at"))

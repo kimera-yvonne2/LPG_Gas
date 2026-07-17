@@ -190,7 +190,12 @@ class SensorSerializer(serializers.ModelSerializer):
             "updated_at",
         )
         read_only_fields = (
-            "id", "is_active", "claimed_at", "pairing_status", "created_at", "updated_at"
+            "id",
+            "is_active",
+            "claimed_at",
+            "pairing_status",
+            "created_at",
+            "updated_at",
         )
         extra_kwargs = {
             "household": {"required": False, "allow_null": True},
@@ -274,9 +279,7 @@ class SensorConnectionSerializer(serializers.Serializer):
 
 class DeviceClaimSerializer(serializers.Serializer):
     pairing_code = serializers.RegexField(r"^\d{6}$")
-    household = serializers.PrimaryKeyRelatedField(
-        queryset=Household.objects.all(), required=False
-    )
+    household = serializers.PrimaryKeyRelatedField(queryset=Household.objects.all(), required=False)
 
 
 class CylinderReplacementSerializer(serializers.ModelSerializer):

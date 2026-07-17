@@ -16,9 +16,7 @@ PAIRING_CODE_TTL = timedelta(minutes=10)
 
 
 def claim_code_digest(code: str) -> str:
-    return hmac.new(
-        settings.SECRET_KEY.encode(), code.encode(), hashlib.sha256
-    ).hexdigest()
+    return hmac.new(settings.SECRET_KEY.encode(), code.encode(), hashlib.sha256).hexdigest()
 
 
 @transaction.atomic
@@ -55,26 +53,40 @@ def claim_device(*, code: str, actor: User, household: Household | None = None):
         try:
             household = actor.household
         except Household.DoesNotExist:
-            raise ValidationError({"household": "Your household has not been provisioned."}) from None
+            raise ValidationError(
+                {"household": "Your household has not been provisioned."}
+            ) from None
     elif actor.role == User.Role.ADMIN:
         if household is None:
             raise ValidationError({"household": "Select the household receiving this device."})
     else:
         raise PermissionDenied("You cannot claim monitoring devices.")
 
-    sensor = Sensor.objects.select_for_update().filter(
-        claim_code_digest=claim_code_digest(code),
-        claim_code_expires_at__gt=timezone.now(),
-        household__isnull=True,
-        is_active=True,
-    ).first()
+    sensor = (
+        Sensor.objects.select_for_update()
+        .filter(
+            claim_code_digest=claim_code_digest(code),
+            claim_code_expires_at__gt=timezone.now(),
+            household__isnull=True,
+            is_active=True,
+        )
+        .first()
+    )
     if sensor is None:
         raise ValidationError({"pairing_code": "The pairing code is invalid or expired."})
     sensor.household = household
     sensor.claimed_at = timezone.now()
     sensor.claim_code_digest = ""
     sensor.claim_code_expires_at = None
-    sensor.save(update_fields=("household", "claimed_at", "claim_code_digest", "claim_code_expires_at", "updated_at"))
+    sensor.save(
+        update_fields=(
+            "household",
+            "claimed_at",
+            "claim_code_digest",
+            "claim_code_expires_at",
+            "updated_at",
+        )
+    )
     return sensor
 
 
@@ -93,5 +105,15 @@ def unpair_device(*, sensor: Sensor, actor: User):
     sensor.claim_code_digest = ""
     sensor.claim_code_expires_at = None
     sensor.online_status = False
-    sensor.save(update_fields=("household", "cylinder", "claimed_at", "claim_code_digest", "claim_code_expires_at", "online_status", "updated_at"))
+    sensor.save(
+        update_fields=(
+            "household",
+            "cylinder",
+            "claimed_at",
+            "claim_code_digest",
+            "claim_code_expires_at",
+            "online_status",
+            "updated_at",
+        )
+    )
     return sensor

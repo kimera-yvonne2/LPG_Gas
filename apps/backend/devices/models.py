@@ -70,6 +70,7 @@ class Cylinder(models.Model):
         if errors:
             raise ValidationError(errors)
 
+
 class Sensor(models.Model):
     mac_address_validator = RegexValidator(
         regex=r"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$",

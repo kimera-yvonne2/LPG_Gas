@@ -50,10 +50,28 @@ class Migration(migrations.Migration):
             ),
         ),
         migrations.AddField(
-            model_name="sensor", name="device_secret_hash", field=models.CharField(default="!", max_length=128)
+            model_name="sensor",
+            name="device_secret_hash",
+            field=models.CharField(default="!", max_length=128),
         ),
-        migrations.AddField(model_name="sensor", name="claim_code_digest", field=models.CharField(blank=True, max_length=64)),
-        migrations.AddField(model_name="sensor", name="claim_code_expires_at", field=models.DateTimeField(blank=True, null=True)),
-        migrations.AddField(model_name="sensor", name="claimed_at", field=models.DateTimeField(blank=True, null=True)),
-        migrations.AddField(model_name="sensor", name="provisioned_at", field=models.DateTimeField(auto_now_add=True)),
+        migrations.AddField(
+            model_name="sensor",
+            name="claim_code_digest",
+            field=models.CharField(blank=True, max_length=64),
+        ),
+        migrations.AddField(
+            model_name="sensor",
+            name="claim_code_expires_at",
+            field=models.DateTimeField(blank=True, null=True),
+        ),
+        migrations.AddField(
+            model_name="sensor",
+            name="claimed_at",
+            field=models.DateTimeField(blank=True, null=True),
+        ),
+        migrations.AddField(
+            model_name="sensor",
+            name="provisioned_at",
+            field=models.DateTimeField(auto_now_add=True),
+        ),
     ]

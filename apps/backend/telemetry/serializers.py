@@ -75,7 +75,9 @@ class DeviceTelemetrySerializer(serializers.Serializer):
         if sensor.household_id is None:
             raise serializers.ValidationError({"device": "Pair this device to a household first."})
         if sensor.cylinder_id is None:
-            raise serializers.ValidationError({"device": "Connect this device to a cylinder first."})
+            raise serializers.ValidationError(
+                {"device": "Connect this device to a cylinder first."}
+            )
         if sensor.cylinder.status == sensor.cylinder.Status.RETIRED:
             raise serializers.ValidationError({"device": "The connected cylinder is retired."})
         if attrs["hx711_ok"] and attrs["weight"] is None:

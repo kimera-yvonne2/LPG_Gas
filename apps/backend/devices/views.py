@@ -1,4 +1,5 @@
 from django.db.models.deletion import ProtectedError
+from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import filters, serializers, viewsets
@@ -6,7 +7,6 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.utils import timezone
 
 from devices.authentication import DeviceAuthentication
 from devices.filters import CylinderFilter, HouseholdFilter, SensorFilter
@@ -173,7 +173,9 @@ class DeviceBootstrapView(APIView):
         sensor.refresh_from_db()
         if sensor.household_id:
             return Response({"status": "connected" if sensor.cylinder_id else "claimed"})
-        return Response({"status": "pairing", "pairing_code": code, "expires_at": sensor.claim_code_expires_at})
+        return Response(
+            {"status": "pairing", "pairing_code": code, "expires_at": sensor.claim_code_expires_at}
+        )
 
 
 class DeviceConfigView(APIView):
@@ -182,20 +184,24 @@ class DeviceConfigView(APIView):
 
     def get(self, request):
         sensor = Sensor.objects.get(pk=request.auth.pk)
-        status = "pairing" if sensor.household_id is None else (
-            "claimed" if sensor.cylinder_id is None else "connected"
+        status = (
+            "pairing"
+            if sensor.household_id is None
+            else ("claimed" if sensor.cylinder_id is None else "connected")
         )
         code_expired = bool(
             status == "pairing"
             and sensor.claim_code_expires_at
             and sensor.claim_code_expires_at <= timezone.now()
         )
-        return Response({
-            "status": status,
-            "claimed": sensor.household_id is not None,
-            "cylinder_connected": sensor.cylinder_id is not None,
-            "pairing_code_expired": code_expired,
-        })
+        return Response(
+            {
+                "status": status,
+                "claimed": sensor.household_id is not None,
+                "cylinder_connected": sensor.cylinder_id is not None,
+                "pairing_code_expired": code_expired,
+            }
+        )
 
 
 class DeviceClaimView(APIView):
