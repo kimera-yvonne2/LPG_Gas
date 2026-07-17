@@ -3,15 +3,21 @@ from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import filters, serializers, viewsets
 from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
+from django.utils import timezone
 
+from devices.authentication import DeviceAuthentication
 from devices.filters import CylinderFilter, HouseholdFilter, SensorFilter
 from devices.models import Cylinder, Household, Sensor
+from devices.pairing import claim_device, issue_pairing_code, unpair_device
 from devices.permissions import CylinderPermission, HouseholdPermission, SensorPermission
 from devices.selectors import cylinder_list_for, household_list_for, sensor_list_for
 from devices.serializers import (
     CylinderReplacementSerializer,
     CylinderSerializer,
+    DeviceClaimSerializer,
     HouseholdSerializer,
     SensorConnectionSerializer,
     SensorSerializer,
@@ -81,7 +87,6 @@ class CylinderViewSet(AssetViewSet):
     )
     ordering_fields = (
         "capacity",
-        "gas_percentage",
         "installation_date",
     )
     ordering = ("-created_at",)
@@ -125,7 +130,6 @@ class SensorViewSet(AssetViewSet):
     search_fields = (
         "esp32_id",
         "mac_address",
-        "firmware_version",
     )
     ordering_fields = ("esp32_id", "battery_level", "last_seen", "created_at")
     ordering = ("esp32_id",)
@@ -152,3 +156,57 @@ class SensorViewSet(AssetViewSet):
     def disconnect(self, request, pk=None):
         sensor = disconnect_sensor(sensor=self.get_object(), actor=request.user)
         return Response(self.get_serializer(sensor).data)
+
+    @action(detail=True, methods=("post",))
+    def unpair(self, request, pk=None):
+        sensor = unpair_device(sensor=self.get_object(), actor=request.user)
+        return Response(self.get_serializer(sensor).data)
+
+
+class DeviceBootstrapView(APIView):
+    authentication_classes = (DeviceAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        sensor = request.auth
+        code = issue_pairing_code(sensor)
+        sensor.refresh_from_db()
+        if sensor.household_id:
+            return Response({"status": "connected" if sensor.cylinder_id else "claimed"})
+        return Response({"status": "pairing", "pairing_code": code, "expires_at": sensor.claim_code_expires_at})
+
+
+class DeviceConfigView(APIView):
+    authentication_classes = (DeviceAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        sensor = Sensor.objects.get(pk=request.auth.pk)
+        status = "pairing" if sensor.household_id is None else (
+            "claimed" if sensor.cylinder_id is None else "connected"
+        )
+        code_expired = bool(
+            status == "pairing"
+            and sensor.claim_code_expires_at
+            and sensor.claim_code_expires_at <= timezone.now()
+        )
+        return Response({
+            "status": status,
+            "claimed": sensor.household_id is not None,
+            "cylinder_connected": sensor.cylinder_id is not None,
+            "pairing_code_expired": code_expired,
+        })
+
+
+class DeviceClaimView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        serializer = DeviceClaimSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        sensor = claim_device(
+            code=serializer.validated_data["pairing_code"],
+            actor=request.user,
+            household=serializer.validated_data.get("household"),
+        )
+        return Response(SensorSerializer(sensor, context={"request": request}).data)

@@ -53,6 +53,9 @@ class HouseholdSerializer(serializers.ModelSerializer):
 
 class CylinderSerializer(serializers.ModelSerializer):
     household_name = serializers.CharField(source="household.owner.username", read_only=True)
+    latest_weight = serializers.SerializerMethodField()
+    latest_gas_percentage = serializers.SerializerMethodField()
+    latest_reading_at = serializers.SerializerMethodField()
     full_weight = serializers.DecimalField(
         max_digits=8, decimal_places=3, min_value=0, write_only=True
     )
@@ -66,8 +69,9 @@ class CylinderSerializer(serializers.ModelSerializer):
             "capacity",
             "full_weight",
             "empty_weight",
-            "current_weight",
-            "gas_percentage",
+            "latest_weight",
+            "latest_gas_percentage",
+            "latest_reading_at",
             "installation_date",
             "status",
             "created_at",
@@ -76,12 +80,37 @@ class CylinderSerializer(serializers.ModelSerializer):
         read_only_fields = (
             "id",
             "empty_weight",
-            "current_weight",
-            "gas_percentage",
+            "latest_weight",
+            "latest_gas_percentage",
+            "latest_reading_at",
             "created_at",
             "updated_at",
         )
         extra_kwargs = {"household": {"required": False}}
+
+    def _latest_values(self, obj):
+        if hasattr(obj, "latest_weight"):
+            return obj.latest_weight, obj.latest_gas_percentage, obj.latest_reading_at
+        reading = obj.readings.only("weight", "gas_percentage", "timestamp").first()
+        if reading is None:
+            return None, None, None
+        return reading.weight, reading.gas_percentage, reading.timestamp
+
+    def get_latest_weight(self, obj):
+        weight, _, _ = self._latest_values(obj)
+        return format(weight, ".3f") if weight is not None else None
+
+    def get_latest_gas_percentage(self, obj):
+        _, percentage, _ = self._latest_values(obj)
+        return format(percentage, ".2f") if percentage is not None else None
+
+    def get_latest_reading_at(self, obj):
+        _, _, timestamp = self._latest_values(obj)
+        return (
+            serializers.DateTimeField().to_representation(timestamp)
+            if timestamp is not None
+            else None
+        )
 
     def validate_household(self, household):
         user = self.context["request"].user
@@ -110,7 +139,6 @@ class CylinderSerializer(serializers.ModelSerializer):
             "household": attrs.get("household", getattr(self.instance, "household", None)),
             "capacity": attrs.get("capacity", getattr(self.instance, "capacity", None)),
             "empty_weight": getattr(self.instance, "empty_weight", None),
-            "current_weight": getattr(self.instance, "current_weight", None),
             "installation_date": attrs.get(
                 "installation_date", getattr(self.instance, "installation_date", None)
             ),
@@ -124,16 +152,12 @@ class CylinderSerializer(serializers.ModelSerializer):
                     {"full_weight": "Full weight cannot be less than the selected gas capacity."}
                 )
             attrs["empty_weight"] = full_weight - capacity
-            # Registration describes a full cylinder; telemetry becomes authoritative afterwards.
-            if self.instance is None:
-                attrs["current_weight"] = full_weight
             values["empty_weight"] = attrs["empty_weight"]
-            values["current_weight"] = attrs.get("current_weight", values["current_weight"])
         candidate = Cylinder(**values)
         if self.instance:
             candidate.pk = self.instance.pk
         try:
-            candidate.full_clean(exclude=("gas_percentage",))
+            candidate.full_clean()
         except DjangoValidationError as exc:
             raise serializers.ValidationError(exc.message_dict) from exc
         return attrs
@@ -146,6 +170,8 @@ class CylinderSerializer(serializers.ModelSerializer):
 
 
 class SensorSerializer(serializers.ModelSerializer):
+    pairing_status = serializers.SerializerMethodField()
+
     class Meta:
         model = Sensor
         fields = (
@@ -153,20 +179,30 @@ class SensorSerializer(serializers.ModelSerializer):
             "household",
             "cylinder",
             "esp32_id",
-            "firmware_version",
             "mac_address",
             "battery_level",
             "online_status",
             "is_active",
             "last_seen",
+            "claimed_at",
+            "pairing_status",
             "created_at",
             "updated_at",
         )
-        read_only_fields = ("id", "is_active", "created_at", "updated_at")
+        read_only_fields = (
+            "id", "is_active", "claimed_at", "pairing_status", "created_at", "updated_at"
+        )
         extra_kwargs = {
-            "household": {"required": False},
+            "household": {"required": False, "allow_null": True},
             "cylinder": {"required": False, "allow_null": True},
         }
+
+    def get_pairing_status(self, obj):
+        if obj.household_id is None:
+            return "unpaired"
+        if obj.cylinder_id is None:
+            return "claimed"
+        return "connected"
 
     def validate_household(self, household):
         user = self.context["request"].user
@@ -236,6 +272,13 @@ class SensorConnectionSerializer(serializers.Serializer):
     cylinder = serializers.PrimaryKeyRelatedField(queryset=Cylinder.objects.all())
 
 
+class DeviceClaimSerializer(serializers.Serializer):
+    pairing_code = serializers.RegexField(r"^\d{6}$")
+    household = serializers.PrimaryKeyRelatedField(
+        queryset=Household.objects.all(), required=False
+    )
+
+
 class CylinderReplacementSerializer(serializers.ModelSerializer):
     full_weight = serializers.DecimalField(max_digits=8, decimal_places=3, min_value=0)
 
@@ -255,14 +298,13 @@ class CylinderReplacementSerializer(serializers.ModelSerializer):
                 {"full_weight": "Full weight cannot be less than the selected gas capacity."}
             )
         attrs["empty_weight"] = full_weight - capacity
-        attrs["current_weight"] = full_weight
         candidate = Cylinder(
             household=self.context["cylinder"].household,
             status=Cylinder.Status.ACTIVE,
             **attrs,
         )
         try:
-            candidate.full_clean(exclude=("gas_percentage",))
+            candidate.full_clean()
         except DjangoValidationError as exc:
             raise serializers.ValidationError(exc.message_dict) from exc
         return attrs

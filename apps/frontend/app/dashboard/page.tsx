@@ -56,12 +56,14 @@ export default function DashboardPage() {
   const latestReading = dashboardQuery.data?.readings[0];
   const activeCylinders = cylinders.filter((cylinder) => cylinder.status === "active").length;
   const onlineSensors = sensors.filter((sensor) => sensor.online_status && sensor.is_active).length;
-  const gasLevel = latestReading ? Number(latestReading.gas_percentage) : null;
+  const gasLevel = latestReading?.gas_percentage !== null && latestReading
+    ? Number(latestReading.gas_percentage)
+    : null;
   const hasCriticalReading = Boolean(
     latestReading &&
       (latestReading.gas_leak_detected ||
-        Number(latestReading.temperature) >= 60 ||
-        Number(latestReading.gas_percentage) <= 5),
+        (latestReading.gas_percentage !== null &&
+          Number(latestReading.gas_percentage) <= 5)),
   );
 
   return (

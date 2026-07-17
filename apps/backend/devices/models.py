@@ -44,13 +44,6 @@ class Cylinder(models.Model):
         validators=[MinValueValidator(Decimal("0"))],
         help_text="Cylinder tare weight in kilograms.",
     )
-    current_weight = models.DecimalField(
-        max_digits=8,
-        decimal_places=3,
-        validators=[MinValueValidator(Decimal("0"))],
-        help_text="Current total cylinder weight in kilograms.",
-    )
-    gas_percentage = models.DecimalField(max_digits=5, decimal_places=2, editable=False)
     installation_date = models.DateField()
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -67,34 +60,15 @@ class Cylinder(models.Model):
         return f"Cylinder {self.pk or 'new'} ({self.capacity} kg)"
 
     def save(self, *args, **kwargs):
-        self.full_clean(exclude=("gas_percentage",))
-        self.gas_percentage = self.calculate_gas_percentage()
-        if self.gas_percentage == 0 and self.status == self.Status.ACTIVE:
-            self.status = self.Status.EMPTY
+        self.full_clean()
         super().save(*args, **kwargs)
 
     def clean(self):
         errors = {}
-        if self.current_weight is not None and self.empty_weight is not None:
-            if self.current_weight < self.empty_weight:
-                errors["current_weight"] = "Current weight cannot be below empty weight."
-            if (
-                self.capacity is not None
-                and self.current_weight > self.empty_weight + self.capacity
-            ):
-                errors["current_weight"] = (
-                    "Current weight cannot exceed empty weight plus capacity."
-                )
         if self.installation_date and self.installation_date > timezone.localdate():
             errors["installation_date"] = "Installation date cannot be in the future."
         if errors:
             raise ValidationError(errors)
-
-    def calculate_gas_percentage(self):
-        gas_weight = max(self.current_weight - self.empty_weight, Decimal("0"))
-        percentage = (gas_weight / self.capacity) * Decimal("100")
-        return min(percentage, Decimal("100")).quantize(Decimal("0.01"))
-
 
 class Sensor(models.Model):
     mac_address_validator = RegexValidator(
@@ -102,7 +76,9 @@ class Sensor(models.Model):
         message="Enter a MAC address in AA:BB:CC:DD:EE:FF format.",
     )
 
-    household = models.ForeignKey(Household, on_delete=models.PROTECT, related_name="sensors")
+    household = models.ForeignKey(
+        Household, on_delete=models.PROTECT, related_name="sensors", blank=True, null=True
+    )
     cylinder = models.OneToOneField(
         Cylinder,
         on_delete=models.SET_NULL,
@@ -111,15 +87,22 @@ class Sensor(models.Model):
         null=True,
     )
     esp32_id = models.CharField(max_length=100, unique=True)
-    firmware_version = models.CharField(max_length=50)
-    mac_address = models.CharField(max_length=17, unique=True, validators=[mac_address_validator])
+    mac_address = models.CharField(
+        max_length=17, unique=True, validators=[mac_address_validator], blank=True, null=True
+    )
     battery_level = models.DecimalField(
         max_digits=5,
         decimal_places=2,
+        default=Decimal("100.00"),
         validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("100"))],
     )
     online_status = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
+    device_secret_hash = models.CharField(max_length=128, default="!")
+    claim_code_digest = models.CharField(max_length=64, blank=True)
+    claim_code_expires_at = models.DateTimeField(blank=True, null=True)
+    claimed_at = models.DateTimeField(blank=True, null=True)
+    provisioned_at = models.DateTimeField(auto_now_add=True)
     last_seen = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -134,7 +117,8 @@ class Sensor(models.Model):
         return self.esp32_id
 
     def save(self, *args, **kwargs):
-        self.mac_address = self.mac_address.upper()
+        if self.mac_address:
+            self.mac_address = self.mac_address.upper()
         self.full_clean()
         super().save(*args, **kwargs)
 
@@ -142,7 +126,9 @@ class Sensor(models.Model):
         errors = {}
         if self.last_seen and self.last_seen > timezone.now():
             errors["last_seen"] = "Last seen cannot be in the future."
-        if self.cylinder_id and self.household_id:
+        if self.cylinder_id and not self.household_id:
+            errors["cylinder"] = "An unclaimed device cannot be connected to a cylinder."
+        elif self.cylinder_id and self.household_id:
             if self.cylinder.household_id != self.household_id:
                 errors["cylinder"] = "The device and cylinder must belong to the same household."
             if self.cylinder.status == Cylinder.Status.RETIRED:

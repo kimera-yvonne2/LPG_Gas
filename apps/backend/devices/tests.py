@@ -72,7 +72,6 @@ def cylinder(household):
         household=household,
         capacity=Decimal("6.000"),
         empty_weight=Decimal("8.000"),
-        current_weight=Decimal("11.000"),
         installation_date=timezone.localdate() - timedelta(days=1),
         status=Cylinder.Status.ACTIVE,
     )
@@ -102,21 +101,16 @@ def test_household_list_is_paginated_and_owner_scoped(api_client, household, oth
     assert response.data["results"][0]["id"] == household.id
 
 
-def test_cylinder_calculates_percentage_and_empty_status(household):
+def test_cylinder_stores_configuration_without_measurements(household):
     cylinder = Cylinder.objects.create(
         household=household,
         capacity=Decimal("6.000"),
         empty_weight=Decimal("5.000"),
-        current_weight=Decimal("6.500"),
         installation_date=timezone.localdate(),
     )
-    assert cylinder.gas_percentage == Decimal("25.00")
-
-    cylinder.current_weight = cylinder.empty_weight
-    cylinder.status = Cylinder.Status.ACTIVE
-    cylinder.save()
-    assert cylinder.gas_percentage == 0
-    assert cylinder.status == Cylinder.Status.EMPTY
+    assert cylinder.capacity == Decimal("6.000")
+    assert cylinder.empty_weight == Decimal("5.000")
+    assert not hasattr(cylinder, "current_weight")
 
 
 def test_cylinder_api_rejects_full_weight_below_capacity(api_client, household):
@@ -151,6 +145,10 @@ def test_household_cylinder_is_automatically_assigned_without_household_id(api_c
 
     assert response.status_code == 201
     assert response.data["household"] == household.id
+    assert response.data["empty_weight"] == "8.000"
+    assert response.data["latest_weight"] is None
+    assert response.data["latest_gas_percentage"] is None
+    assert response.data["latest_reading_at"] is None
 
 
 def test_household_cannot_override_automatic_cylinder_household(
@@ -299,7 +297,6 @@ def test_technician_cannot_register_sensor(api_client, cylinder, technician):
         {
             "cylinder": cylinder.id,
             "esp32_id": "ESP32-0001",
-            "firmware_version": "1.0.0",
             "mac_address": "aa:bb:cc:dd:ee:ff",
             "battery_level": "88.50",
             "online_status": True,
@@ -318,7 +315,6 @@ def test_household_can_create_update_and_delete_sensor_for_own_cylinder(api_clie
         {
             "cylinder": cylinder.id,
             "esp32_id": "ESP32-READ",
-            "firmware_version": "1.0.0",
             "mac_address": "AA:BB:CC:DD:EE:01",
             "battery_level": "90.00",
             "online_status": True,
@@ -331,7 +327,7 @@ def test_household_can_create_update_and_delete_sensor_for_own_cylinder(api_clie
     sensor = Sensor.objects.get(esp32_id="ESP32-READ")
     update_response = api_client.patch(
         reverse("v1:devices:sensor-detail", args=[sensor.id]),
-        {"firmware_version": "2.0.0"},
+        {"battery_level": "80.00"},
         format="json",
     )
     assert update_response.status_code == 200
@@ -351,7 +347,6 @@ def test_household_cannot_connect_sensor_to_another_households_cylinder(
         {
             "cylinder": cylinder.id,
             "esp32_id": "ESP32-NOT-MINE",
-            "firmware_version": "1.0.0",
             "mac_address": "AA:BB:CC:DD:EE:03",
             "battery_level": "100.00",
             "online_status": False,
@@ -370,7 +365,6 @@ def test_cylinder_delete_disconnects_device_when_there_is_no_history(
         household=cylinder.household,
         cylinder=cylinder,
         esp32_id="ESP32-PROTECT",
-        firmware_version="1.0.0",
         mac_address="AA:BB:CC:DD:EE:02",
         battery_level=Decimal("90.00"),
     )
@@ -388,7 +382,6 @@ def test_used_cylinder_is_retired_and_hidden_instead_of_destroyed(api_client, cy
         household=cylinder.household,
         cylinder=cylinder,
         esp32_id="ESP32-HISTORY",
-        firmware_version="1.0.0",
         mac_address="AA:BB:CC:DD:EE:20",
         battery_level=Decimal("90.00"),
     )
@@ -396,8 +389,6 @@ def test_used_cylinder_is_retired_and_hidden_instead_of_destroyed(api_client, cy
         sensor=sensor,
         cylinder=cylinder,
         weight=Decimal("14.000"),
-        temperature=Decimal("25.00"),
-        signal_strength=-60,
     )
     authenticate(api_client, cylinder.household.owner)
 
@@ -417,7 +408,6 @@ def test_replacing_cylinder_moves_device_and_preserves_reading_snapshot(api_clie
         household=cylinder.household,
         cylinder=cylinder,
         esp32_id="ESP32-REPLACE",
-        firmware_version="1.0.0",
         mac_address="AA:BB:CC:DD:EE:21",
         battery_level=Decimal("90.00"),
     )
@@ -425,8 +415,6 @@ def test_replacing_cylinder_moves_device_and_preserves_reading_snapshot(api_clie
         sensor=sensor,
         cylinder=cylinder,
         weight=Decimal("14.000"),
-        temperature=Decimal("25.00"),
-        signal_strength=-60,
     )
     authenticate(api_client, cylinder.household.owner)
 
@@ -455,7 +443,6 @@ def test_household_can_disconnect_and_reconnect_device(api_client, cylinder):
         household=cylinder.household,
         cylinder=cylinder,
         esp32_id="ESP32-MOVE",
-        firmware_version="1.0.0",
         mac_address="AA:BB:CC:DD:EE:22",
         battery_level=Decimal("90.00"),
     )

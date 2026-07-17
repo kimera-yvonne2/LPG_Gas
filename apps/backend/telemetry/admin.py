@@ -11,8 +11,10 @@ class ReadingAdmin(admin.ModelAdmin):
         "timestamp",
         "weight",
         "gas_percentage",
+        "mq2_raw",
+        "mq2_ready",
+        "hx711_ok",
         "gas_leak_detected",
-        "signal_strength",
     )
     list_filter = ("gas_leak_detected", "timestamp")
     search_fields = ("sensor__esp32_id",)

@@ -1,6 +1,7 @@
+from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from telemetry.views import DepletionEstimateViewSet, ReadingViewSet
+from telemetry.views import DepletionEstimateViewSet, DeviceTelemetryView, ReadingViewSet
 
 app_name = "telemetry"
 
@@ -12,4 +13,6 @@ router.register(
     basename="depletion-estimate",
 )
 
-urlpatterns = router.urls
+urlpatterns = [
+    path("device/telemetry/", DeviceTelemetryView.as_view(), name="device-telemetry"),
+] + router.urls

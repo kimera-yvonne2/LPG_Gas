@@ -5,7 +5,7 @@ from decimal import Decimal, InvalidOperation
 from django.db import transaction
 from django.utils import timezone
 
-from devices.models import Cylinder
+from devices.models import Cylinder, Sensor
 from telemetry.models import DepletionEstimate, Reading
 
 logger = logging.getLogger(__name__)
@@ -30,19 +30,51 @@ def create_reading(**data) -> Reading:
     reading = Reading.objects.create(**data)
 
     cylinder = reading.cylinder
-    cylinder.current_weight = reading.weight
-    cylinder.save(
-        update_fields=(
-            "current_weight",
-            "gas_percentage",
-            "status",
-            "updated_at",
+    next_status = None
+    if reading.gas_percentage is not None:
+        next_status = (
+            Cylinder.Status.EMPTY if reading.gas_percentage == 0 else Cylinder.Status.ACTIVE
         )
-    )
+    if next_status and cylinder.status in {Cylinder.Status.ACTIVE, Cylinder.Status.EMPTY} and (
+        cylinder.status != next_status
+    ):
+        cylinder.status = next_status
+        cylinder.save(update_fields=("status", "updated_at"))
     from telemetry.tasks import generate_depletion_estimate_task
 
-    transaction.on_commit(lambda: generate_depletion_estimate_task.delay(cylinder.id))
+    if reading.weight is not None:
+        transaction.on_commit(
+            lambda: generate_depletion_estimate_task.delay(cylinder.id),
+            robust=True,
+        )
     return reading
+
+
+@transaction.atomic
+def ingest_device_telemetry(*, sensor: Sensor, **data) -> tuple[Reading, bool]:
+    """Persist one authenticated device message and update its presence atomically."""
+
+    # Lock only the sensor row. Joining the nullable cylinder relation here
+    # makes PostgreSQL reject FOR UPDATE on the nullable side of the outer join.
+    sensor = Sensor.objects.select_for_update().get(pk=sensor.pk)
+    now = timezone.now()
+    sensor.last_seen = now
+    sensor.online_status = True
+    sensor.save(update_fields=("last_seen", "online_status", "updated_at"))
+
+    existing = Reading.objects.filter(message_id=data["message_id"]).first()
+    if existing:
+        if existing.sensor_id != sensor.id:
+            raise ValueError("The message ID belongs to another device.")
+        return existing, False
+
+    reading = create_reading(
+        sensor=sensor,
+        cylinder=sensor.cylinder,
+        timestamp=now,
+        **data,
+    )
+    return reading, True
 
 
 def _save_fallback_estimate(
@@ -78,9 +110,9 @@ def _readings_after_latest_refill(readings: list[Reading]) -> list[Reading]:
 
     for index in range(1, len(readings)):
         previous_weight = readings[index - 1].weight
-        current_weight = readings[index].weight
+        current_reading_weight = readings[index].weight
 
-        if current_weight - previous_weight >= REFILL_INCREASE_THRESHOLD:
+        if current_reading_weight - previous_weight >= REFILL_INCREASE_THRESHOLD:
             start_index = index
 
     return readings[start_index:]
@@ -201,6 +233,7 @@ def generate_depletion_estimate(cylinder: Cylinder) -> DepletionEstimate:
         Reading.objects.filter(
             cylinder=cylinder,
             timestamp__gte=window_start,
+            weight__isnull=False,
         )
         .select_related("sensor", "cylinder")
         .order_by("timestamp")

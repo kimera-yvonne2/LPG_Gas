@@ -47,7 +47,7 @@ class CylinderPermission(BasePermission):
         if request.user.role == User.Role.TECHNICIAN:
             return False
         if request.user.role == User.Role.HOUSEHOLD:
-            return obj.household.owner_id == request.user.id
+            return obj.household_id is not None and obj.household.owner_id == request.user.id
         return False
 
 
@@ -67,7 +67,7 @@ class SensorPermission(BasePermission):
         if request.user.role == User.Role.ADMIN:
             return True
         if request.user.role == User.Role.HOUSEHOLD:
-            return obj.household.owner_id == request.user.id
+            return obj.household_id is not None and obj.household.owner_id == request.user.id
         if request.user.role == User.Role.TECHNICIAN:
             return False
         return False

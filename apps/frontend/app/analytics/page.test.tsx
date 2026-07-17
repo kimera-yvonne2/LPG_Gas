@@ -10,7 +10,7 @@ vi.mock("next/dynamic", () => ({ default: () => () => <div data-testid="lazy-cha
 
 import AnalyticsPage from "./page";
 
-const reading = (overrides: Partial<Reading> = {}): Reading => ({ id: 1, sensor: 1, cylinder: 1, esp32_id: "ESP-1", timestamp: "2026-07-14T08:30:00Z", weight: "12.5", gas_percentage: "55", temperature: "26", signal_strength: -64, gas_leak_detected: false, ...overrides });
+const reading = (overrides: Partial<Reading> = {}): Reading => ({ id: 1, sensor: 1, cylinder: 1, esp32_id: "ESP-1", message_id: "msg-1", timestamp: "2026-07-14T08:30:00Z", weight: "12.5", gas_percentage: "55", mq2_raw: 900, mq2_ready: true, hx711_ok: true, gas_leak_detected: false, ...overrides });
 
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });

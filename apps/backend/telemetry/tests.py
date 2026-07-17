@@ -2,6 +2,7 @@ from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
 import pytest
+from django.contrib.auth.hashers import make_password
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -39,14 +40,12 @@ def asset_graph():
         household=household,
         capacity=Decimal("6.000"),
         empty_weight=Decimal("5.000"),
-        current_weight=Decimal("10.000"),
         installation_date=timezone.localdate(),
     )
     sensor = Sensor.objects.create(
         household=household,
         cylinder=cylinder,
         esp32_id="ESP32-READING",
-        firmware_version="1.0.0",
         mac_address="AA:BB:CC:DD:EE:10",
         battery_level=Decimal("75.00"),
         online_status=True,
@@ -72,12 +71,108 @@ def create_prediction_readings(sensor, cylinder):
             cylinder=cylinder,
             timestamp=timestamp,
             weight=weight,
-            temperature=Decimal("25.00"),
-            signal_strength=-60,
         )
 
 
-def test_technician_creates_reading_and_updates_cylinder(api_client, asset_graph):
+def authenticate_device(sensor, secret="device-test-secret"):
+    sensor.device_secret_hash = make_password(secret)
+    sensor.save(update_fields=("device_secret_hash", "updated_at"))
+    return {
+        "HTTP_X_DEVICE_ID": sensor.esp32_id,
+        "HTTP_X_DEVICE_SECRET": secret,
+    }
+
+
+def test_device_ingests_telemetry_and_updates_presence(api_client, asset_graph):
+    _, cylinder, sensor = asset_graph
+    sensor.online_status = False
+    sensor.save(update_fields=("online_status", "updated_at"))
+    headers = authenticate_device(sensor)
+
+    response = api_client.post(
+        reverse("v1:telemetry:device-telemetry"),
+        {
+            "message_id": "ESP32-READING-BOOT2-0001",
+            "weight": "8.250",
+            "mq2_raw": 850,
+            "mq2_ready": True,
+            "gas_leak_detected": False,
+            "hx711_ok": True,
+        },
+        format="json",
+        **headers,
+    )
+
+    assert response.status_code == 201
+    assert response.data["cylinder"] == cylinder.id
+    assert response.data["gas_percentage"] == "54.17"
+    assert response.data["duplicate"] is False
+    sensor.refresh_from_db()
+    assert sensor.online_status is True
+    assert sensor.last_seen is not None
+
+
+def test_device_telemetry_is_idempotent(api_client, asset_graph):
+    _, _, sensor = asset_graph
+    headers = authenticate_device(sensor)
+    payload = {
+        "message_id": "ESP32-READING-BOOT2-RETRY",
+        "weight": "8.250",
+        "mq2_raw": 850,
+        "mq2_ready": True,
+        "gas_leak_detected": False,
+        "hx711_ok": True,
+    }
+    first = api_client.post(
+        reverse("v1:telemetry:device-telemetry"), payload, format="json", **headers
+    )
+    second = api_client.post(
+        reverse("v1:telemetry:device-telemetry"), payload, format="json", **headers
+    )
+
+    assert first.status_code == 201
+    assert second.status_code == 200
+    assert second.data["duplicate"] is True
+    assert Reading.objects.filter(message_id=payload["message_id"]).count() == 1
+
+
+def test_device_preserves_mq2_telemetry_when_weight_is_unavailable(api_client, asset_graph):
+    _, _, sensor = asset_graph
+    headers = authenticate_device(sensor)
+    response = api_client.post(
+        reverse("v1:telemetry:device-telemetry"),
+        {
+            "message_id": "ESP32-READING-HX711-FAIL",
+            "weight": None,
+            "mq2_raw": 1800,
+            "mq2_ready": True,
+            "gas_leak_detected": True,
+            "hx711_ok": False,
+        },
+        format="json",
+        **headers,
+    )
+
+    assert response.status_code == 201
+    assert response.data["weight"] is None
+    assert response.data["gas_percentage"] is None
+    assert response.data["gas_leak_detected"] is True
+
+
+def test_device_telemetry_rejects_invalid_secret(api_client, asset_graph):
+    _, _, sensor = asset_graph
+    authenticate_device(sensor)
+    response = api_client.post(
+        reverse("v1:telemetry:device-telemetry"),
+        {},
+        format="json",
+        HTTP_X_DEVICE_ID=sensor.esp32_id,
+        HTTP_X_DEVICE_SECRET="wrong-secret",
+    )
+    assert response.status_code == 401
+
+
+def test_admin_creates_reading_and_cylinder_exposes_latest_telemetry(api_client, asset_graph):
     _, cylinder, sensor = asset_graph
     admin = make_user("reading-admin@example.com", User.Role.ADMIN)
     api_client.force_authenticate(admin)
@@ -87,8 +182,10 @@ def test_technician_creates_reading_and_updates_cylinder(api_client, asset_graph
             "sensor": sensor.id,
             "timestamp": (timezone.now() - timedelta(seconds=1)).isoformat(),
             "weight": "6.500",
-            "temperature": "28.50",
-            "signal_strength": -55,
+            "message_id": "ESP32-READING-BOOT1-0001",
+            "mq2_raw": 1234,
+            "mq2_ready": True,
+            "hx711_ok": True,
             "gas_leak_detected": True,
         },
         format="json",
@@ -97,9 +194,18 @@ def test_technician_creates_reading_and_updates_cylinder(api_client, asset_graph
     assert response.data["gas_percentage"] == "25.00"
     assert response.data["cylinder"] == cylinder.id
     assert response.data["gas_leak_detected"] is True
-    cylinder.refresh_from_db()
-    assert cylinder.current_weight == Decimal("6.500")
-    assert cylinder.gas_percentage == Decimal("25.00")
+    assert response.data["mq2_raw"] == 1234
+    assert response.data["mq2_ready"] is True
+    assert response.data["hx711_ok"] is True
+    assert Reading.objects.get(pk=response.data["id"]).weight == Decimal("6.500")
+
+    cylinder_response = api_client.get(
+        reverse("v1:devices:cylinder-detail", args=[cylinder.id])
+    )
+    assert cylinder_response.status_code == 200
+    assert cylinder_response.data["latest_weight"] == "6.500"
+    assert cylinder_response.data["latest_gas_percentage"] == "25.00"
+    assert cylinder_response.data["latest_reading_at"] == response.data["timestamp"]
 
 
 def test_technician_cannot_create_reading(api_client, asset_graph):
@@ -112,8 +218,6 @@ def test_technician_cannot_create_reading(api_client, asset_graph):
         {
             "sensor": sensor.id,
             "weight": "7.500",
-            "temperature": "28.50",
-            "signal_strength": -55,
         },
         format="json",
     )
@@ -130,8 +234,6 @@ def test_reading_rejects_weight_outside_cylinder_limits(api_client, asset_graph)
         {
             "sensor": sensor.id,
             "weight": "4.000",
-            "temperature": "20.00",
-            "signal_strength": -50,
         },
         format="json",
     )
@@ -146,8 +248,6 @@ def test_household_reads_only_owned_readings(api_client, asset_graph):
         cylinder=sensor.cylinder,
         timestamp=timezone.now() - timedelta(minutes=1),
         weight=Decimal("8.000"),
-        temperature=Decimal("25.00"),
-        signal_strength=-60,
     )
     api_client.force_authenticate(owner)
     response = api_client.get(reverse("v1:telemetry:reading-list"))
@@ -163,8 +263,6 @@ def test_technician_cannot_see_readings_through_a_refill_request(api_client, ass
         cylinder=sensor.cylinder,
         timestamp=timezone.now() - timedelta(minutes=2),
         weight=Decimal("8.500"),
-        temperature=Decimal("25.50"),
-        signal_strength=-58,
     )
     user = make_user("reading-context@example.com", User.Role.TECHNICIAN)
     refill_request = RefillRequest.objects.create(
@@ -193,16 +291,12 @@ def test_reading_filter_search_order_and_pagination(api_client, asset_graph):
         cylinder=sensor.cylinder,
         timestamp=timezone.now() - timedelta(hours=2),
         weight=Decimal("7.000"),
-        temperature=Decimal("24.00"),
-        signal_strength=-70,
     )
     recent = Reading.objects.create(
         sensor=sensor,
         cylinder=sensor.cylinder,
         timestamp=timezone.now() - timedelta(minutes=2),
         weight=Decimal("9.000"),
-        temperature=Decimal("26.00"),
-        signal_strength=-50,
     )
     api_client.force_authenticate(owner)
     response = api_client.get(
@@ -229,8 +323,6 @@ def test_duplicate_sensor_timestamp_is_rejected(api_client, asset_graph):
         cylinder=sensor.cylinder,
         timestamp=timestamp,
         weight=Decimal("8.000"),
-        temperature=Decimal("25.00"),
-        signal_strength=-60,
     )
     api_client.force_authenticate(admin)
     response = api_client.post(
@@ -239,8 +331,6 @@ def test_duplicate_sensor_timestamp_is_rejected(api_client, asset_graph):
             "sensor": sensor.id,
             "timestamp": timestamp.isoformat(),
             "weight": "8.500",
-            "temperature": "25.00",
-            "signal_strength": -60,
         },
         format="json",
     )
@@ -258,8 +348,6 @@ def test_disconnected_device_cannot_send_reading(api_client, asset_graph):
         {
             "sensor": sensor.id,
             "weight": "8.000",
-            "temperature": "25.00",
-            "signal_strength": -60,
             "gas_leak_detected": False,
         },
         format="json",
@@ -297,8 +385,6 @@ def test_generate_depletion_estimate_returns_insufficient_data(asset_graph):
         cylinder=cylinder,
         timestamp=timezone.now() - timedelta(hours=2),
         weight=Decimal("9.000"),
-        temperature=Decimal("25.00"),
-        signal_strength=-60,
     )
 
     estimate = generate_depletion_estimate(cylinder)
@@ -330,8 +416,6 @@ def test_generate_depletion_estimate_returns_stale_data(asset_graph):
             cylinder=cylinder,
             timestamp=timestamp,
             weight=weight,
-            temperature=Decimal("25.00"),
-            signal_strength=-60,
         )
 
     estimate = generate_depletion_estimate(cylinder)
@@ -366,8 +450,6 @@ def test_generate_depletion_estimate_uses_readings_after_latest_refill(asset_gra
             cylinder=cylinder,
             timestamp=timestamp,
             weight=weight,
-            temperature=Decimal("25.00"),
-            signal_strength=-60,
         )
 
     estimate = generate_depletion_estimate(cylinder)
@@ -423,7 +505,6 @@ def test_household_cannot_view_another_households_depletion_estimate(
         household=other_household,
         capacity=Decimal("6.000"),
         empty_weight=Decimal("5.000"),
-        current_weight=Decimal("9.000"),
         installation_date=timezone.localdate(),
     )
 
@@ -517,8 +598,6 @@ def test_generate_depletion_estimate_handles_zero_consumption(asset_graph):
             cylinder=cylinder,
             timestamp=timestamp,
             weight=weight,
-            temperature=Decimal("25.00"),
-            signal_strength=-60,
         )
 
     estimate = generate_depletion_estimate(cylinder)

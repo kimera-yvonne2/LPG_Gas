@@ -1,0 +1,3 @@
+#pragma once
+
+const char* DEVICE_SECRET = "REPLACE_WITH_PROVISIONED_DEVICE_SECRET";

@@ -9,6 +9,7 @@
 #include <Adafruit_SSD1306.h>
 #include <ArduinoJson.h>
 #include <time.h>
+#include "device_secrets.h"
 
 // -----------------------------------------------------------------------------
 // Project configuration
@@ -16,7 +17,6 @@
 
 // Replace these two values before testing backend communication.
 const char* API_BASE_URL = "https://slms-9k6l.onrender.com/api/v1";
-const char* DEVICE_SECRET = "REPLACE_WITH_A_UNIQUE_DEVICE_SECRET";
 
 // Google Trust Services GTS Root R4. This is the trust anchor for the current
 // onrender.com certificate chain, not the short-lived onrender.com leaf cert.
@@ -58,6 +58,7 @@ const unsigned long OLED_INTERVAL_MS = 500UL;
 const unsigned long TELEMETRY_INTERVAL_MS = 30000UL;
 const unsigned long WIFI_RECHECK_MS = 5000UL;
 const unsigned long BACKEND_RECHECK_MS = 10000UL;
+const unsigned long PAIRING_RECHECK_MS = 3000UL;
 const unsigned long BUTTON_DEBOUNCE_MS = 50UL;
 const unsigned long ALARM_FLASH_MS = 300UL;
 const unsigned long BACKOFF_BASE_MS = 2000UL;
@@ -86,7 +87,10 @@ bool weightValid = false;
 bool mq2Ready = false;
 bool gasLeakDetected = false;
 bool backendReady = false;
+bool deviceConnected = false;
 bool alarmFlashState = false;
+String pairingStatus = "pairing";
+String pairingCode;
 
 float currentGrossWeight = 0.0f;
 int mq2Raw = 0;
@@ -102,6 +106,7 @@ unsigned long lastOledAt = 0;
 unsigned long lastTelemetryAt = 0;
 unsigned long lastWifiCheckAt = 0;
 unsigned long lastBackendCheckAt = 0;
+unsigned long lastPairingCheckAt = 0;
 unsigned long lastAlarmFlashAt = 0;
 unsigned long lastPostFailureAt = 0;
 unsigned long telemetryBackoffMs = 0;
@@ -136,6 +141,8 @@ void connectWifiBlocking();
 bool synchronizeClockBlocking(unsigned long timeoutMs);
 bool checkBackendHealth();
 void waitForBackendBlocking();
+bool refreshPairingState(bool bootstrap);
+void waitForPairingBlocking();
 void processCommunications();
 bool sendTelemetry();
 String makeMessageId();
@@ -217,6 +224,10 @@ void setup() {
   // online until Django's health endpoint answers successfully. Local sensing
   // and the alarm are serviced while waiting for the backend.
   waitForBackendBlocking();
+
+  // The backend must confirm that this physical unit belongs to a household
+  // and has been connected to a cylinder before telemetry can start.
+  waitForPairingBlocking();
 
   Serial.println("Device setup complete.");
 }
@@ -566,6 +577,106 @@ void waitForBackendBlocking() {
 }
 
 // -----------------------------------------------------------------------------
+// Household pairing
+// -----------------------------------------------------------------------------
+
+bool refreshPairingState(bool bootstrap) {
+  if (WiFi.status() != WL_CONNECTED) {
+    return false;
+  }
+
+  WiFiClientSecure client;
+  client.setCACert(ROOT_CA_CERT);
+  HTTPClient http;
+  http.setConnectTimeout(5000);
+  http.setTimeout(5000);
+
+  String endpoint = bootstrap ? "/device/bootstrap/" : "/device/config/";
+  if (!http.begin(client, String(API_BASE_URL) + endpoint)) {
+    return false;
+  }
+
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("X-Device-ID", deviceId);
+  http.addHeader("X-Device-Secret", DEVICE_SECRET);
+  int status = bootstrap ? http.POST("{}") : http.GET();
+  String responseBody = http.getString();
+  http.end();
+
+  Serial.printf("Pairing response: %d\n", status);
+  if (status < 200 || status >= 300) {
+    if (status == 401 || status == 403 || status == 404) {
+      renderOled("DEVICE NOT READY", "Provision device", "Check ID/secret");
+    }
+    return false;
+  }
+
+  JsonDocument response;
+  if (deserializeJson(response, responseBody)) {
+    Serial.println("Invalid pairing response from backend.");
+    return false;
+  }
+
+  pairingStatus = response["status"] | "pairing";
+  if (response["pairing_code_expired"] | false) {
+    pairingCode = "";
+  }
+  if (response["pairing_code"].is<const char*>()) {
+    pairingCode = response["pairing_code"].as<String>();
+  }
+  deviceConnected = pairingStatus == "connected";
+  return true;
+}
+
+void waitForPairingBlocking() {
+  deviceConnected = false;
+  pairingCode = "";
+
+  while (!deviceConnected) {
+    if (WiFi.status() != WL_CONNECTED) {
+      backendReady = false;
+      connectWifiBlocking();
+      synchronizeClockBlocking(30000UL);
+      waitForBackendBlocking();
+    }
+
+    bool needsCode = pairingStatus == "pairing" && pairingCode.length() != 6;
+    refreshPairingState(needsCode);
+
+    if (pairingStatus == "pairing") {
+      renderOled("PAIR DEVICE", "Code: " + pairingCode,
+                 "Enter on dashboard", "Waiting for user");
+    } else if (pairingStatus == "claimed") {
+      renderOled("DEVICE PAIRED", "Household linked",
+                 "Connect cylinder", "On dashboard");
+    } else if (pairingStatus == "connected") {
+      deviceConnected = true;
+      renderOled("DEVICE READY", "Household linked",
+                 "Cylinder linked", "Telemetry enabled");
+      delay(1500);
+      break;
+    }
+
+    unsigned long startedAt = millis();
+    while (millis() - startedAt < PAIRING_RECHECK_MS) {
+      handleButtons();
+      if (millis() - lastSensorAt >= SENSOR_INTERVAL_MS) {
+        lastSensorAt = millis();
+        readSensors();
+        updateAlarm();
+      }
+      delay(5);
+    }
+
+    // Poll config after bootstrap. If the code expires, bootstrap will issue a
+    // fresh code after the backend rejects/clears it during a later attempt.
+    if (pairingCode.length() == 6) {
+      refreshPairingState(false);
+    }
+  }
+}
+
+// -----------------------------------------------------------------------------
 // Runtime communications and telemetry
 // -----------------------------------------------------------------------------
 
@@ -587,6 +698,22 @@ void processCommunications() {
       backendReady = checkBackendHealth();
     }
     return;  // Never attempt telemetry until health verification passes.
+  }
+
+  if (now - lastPairingCheckAt >= BACKEND_RECHECK_MS) {
+    lastPairingCheckAt = now;
+    if (!refreshPairingState(false)) {
+      return;
+    }
+    if (!deviceConnected) {
+      pairingCode = "";
+      waitForPairingBlocking();
+      return;
+    }
+  }
+
+  if (!deviceConnected) {
+    return;  // Never send data until household and cylinder pairing is complete.
   }
 
   bool leakChanged = mq2Ready && gasLeakDetected != lastReportedLeakState;

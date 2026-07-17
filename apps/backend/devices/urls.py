@@ -1,6 +1,14 @@
+from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from devices.views import CylinderViewSet, HouseholdViewSet, SensorViewSet
+from devices.views import (
+    CylinderViewSet,
+    DeviceBootstrapView,
+    DeviceClaimView,
+    DeviceConfigView,
+    HouseholdViewSet,
+    SensorViewSet,
+)
 
 app_name = "devices"
 
@@ -9,4 +17,8 @@ router.register("households", HouseholdViewSet, basename="household")
 router.register("cylinders", CylinderViewSet, basename="cylinder")
 router.register("sensors", SensorViewSet, basename="sensor")
 
-urlpatterns = router.urls
+urlpatterns = [
+    path("device/bootstrap/", DeviceBootstrapView.as_view(), name="device-bootstrap"),
+    path("device/config/", DeviceConfigView.as_view(), name="device-config"),
+    path("devices/claim/", DeviceClaimView.as_view(), name="device-claim"),
+] + router.urls
