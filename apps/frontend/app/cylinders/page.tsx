@@ -14,13 +14,13 @@ const today = () => new Date().toISOString().slice(0, 10);
 const emptyCylinder = () => ({
   household: "",
   capacity: "6.000",
-  full_weight: "",
+  empty_weight: "",
   installation_date: today(),
   status: "active",
 });
 const emptyReplacement = () => ({
   capacity: "6.000",
-  full_weight: "",
+  empty_weight: "",
   installation_date: today(),
 });
 const emptyPairing = () => ({ pairing_code: "", household: "" });
@@ -585,18 +585,25 @@ function CylinderFields<T extends Record<string, string>>({
         </select>
       </div>
       <div>
-        <label className="label">Full weight</label>
+        <label className="label">Tare weight (empty cylinder)</label>
         <input
           required
           className="field"
           type="number"
-          min={form.capacity}
+          min="0"
           step="0.001"
-          value={form.full_weight}
+          value={form.empty_weight}
           onChange={(event) =>
-            setForm({ ...form, full_weight: event.target.value })
+            setForm({ ...form, empty_weight: event.target.value })
           }
         />
+        {form.empty_weight && (
+          <p className="mt-1 text-xs text-slate-500">
+            Full cylinder weight: {(
+              Number(form.empty_weight) + Number(form.capacity)
+            ).toFixed(3)} kg
+          </p>
+        )}
       </div>
       <div>
         <label className="label">Installation date</label>

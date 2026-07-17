@@ -604,6 +604,10 @@ bool refreshPairingState(bool bootstrap) {
   http.end();
 
   Serial.printf("Pairing response: %d\n", status);
+  if (responseBody.length() > 0) {
+    Serial.print("Pairing body: ");
+    Serial.println(responseBody);
+  }
   if (status < 200 || status >= 300) {
     if (status == 401 || status == 403 || status == 404) {
       renderOled("DEVICE NOT READY", "Provision device", "Check ID/secret");
@@ -641,9 +645,15 @@ void waitForPairingBlocking() {
     }
 
     bool needsCode = pairingStatus == "pairing" && pairingCode.length() != 6;
-    refreshPairingState(needsCode);
+    bool pairingRequestSucceeded = refreshPairingState(needsCode);
 
-    if (pairingStatus == "pairing") {
+    if (!pairingRequestSucceeded) {
+      renderOled("PAIRING ERROR", "Backend rejected", "Check Serial Monitor",
+                 "Retrying...");
+    } else if (pairingStatus == "pairing" && pairingCode.length() != 6) {
+      renderOled("PAIRING ERROR", "No code received", "Check backend API",
+                 "Retrying...");
+    } else if (pairingStatus == "pairing") {
       renderOled("PAIR DEVICE", "Code: " + pairingCode,
                  "Enter on dashboard", "Waiting for user");
     } else if (pairingStatus == "claimed") {
