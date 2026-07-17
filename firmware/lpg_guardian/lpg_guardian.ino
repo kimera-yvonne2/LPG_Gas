@@ -49,13 +49,13 @@ const uint8_t PIN_BUTTON_RESET_WIFI = 10;
 const uint8_t PIN_BUTTON_TARE = 11;
 
 const float LOADCELL_CALIBRATION_FACTOR = -110641.0f;
-const int MQ2_LEAK_THRESHOLD = 1500;
-const int MQ2_CLEAR_THRESHOLD = 1350;
+const int MQ2_LEAK_THRESHOLD = 100;
+const int MQ2_CLEAR_THRESHOLD = 50;
 const unsigned long MQ2_WARMUP_MS = 60000UL;
 
 const unsigned long SENSOR_INTERVAL_MS = 200UL;
 const unsigned long OLED_INTERVAL_MS = 500UL;
-const unsigned long TELEMETRY_INTERVAL_MS = 30000UL;
+const unsigned long TELEMETRY_INTERVAL_MS = 5000UL;
 const unsigned long WIFI_RECHECK_MS = 5000UL;
 const unsigned long BACKEND_RECHECK_MS = 10000UL;
 const unsigned long PAIRING_RECHECK_MS = 3000UL;
@@ -108,8 +108,6 @@ unsigned long lastWifiCheckAt = 0;
 unsigned long lastBackendCheckAt = 0;
 unsigned long lastPairingCheckAt = 0;
 unsigned long lastAlarmFlashAt = 0;
-unsigned long lastPostFailureAt = 0;
-unsigned long telemetryBackoffMs = 0;
 
 uint32_t bootSessionId = 0;
 uint32_t messageSequence = 0;
@@ -728,9 +726,8 @@ void processCommunications() {
 
   bool leakChanged = mq2Ready && gasLeakDetected != lastReportedLeakState;
   bool normalIntervalElapsed = now - lastTelemetryAt >= TELEMETRY_INTERVAL_MS;
-  bool backoffElapsed = telemetryBackoffMs == 0 || now - lastPostFailureAt >= telemetryBackoffMs;
 
-  if ((leakChanged || normalIntervalElapsed) && backoffElapsed) {
+  if (leakChanged || normalIntervalElapsed) {
     sendTelemetry();
   }
 }
@@ -766,29 +763,33 @@ bool sendTelemetry() {
 
   String body;
   serializeJson(payload, body);
+
   int status = http.POST(body);
-  String responseBody = http.getString();
+
+  // Don't use getString() — its chunked-transfer parser is unreliable.
+  // We only need the status code; read+discard the body manually via the stream.
+  if (status > 0) {
+    WiFiClient* stream = http.getStreamPtr();
+    unsigned long streamStart = millis();
+    while (http.connected() && (millis() - streamStart < 3000)) {
+      while (stream->available()) {
+        stream->read();  // discard
+      }
+      if (!stream->available() && !http.connected()) break;
+      delay(1);
+    }
+  }
+
   http.end();
 
   Serial.printf("Telemetry response: %d\n", status);
-  if (responseBody.length() > 0) {
-    Serial.println(responseBody);
-  }
 
   if (status >= 200 && status < 300) {
     lastTelemetryAt = millis();
     lastReportedLeakState = gasLeakDetected;
-    telemetryBackoffMs = 0;
     return true;
   }
 
-  lastPostFailureAt = millis();
-  telemetryBackoffMs = telemetryBackoffMs == 0
-                           ? BACKOFF_BASE_MS
-                           : min(telemetryBackoffMs * 2UL, BACKOFF_MAX_MS);
-
-  // Authentication/not-found errors require backend or provisioning work;
-  // keep the local monitor running but recheck backend health before retrying.
   if (status == 401 || status == 403 || status == 404) {
     backendReady = false;
   }
