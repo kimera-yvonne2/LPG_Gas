@@ -113,20 +113,20 @@ def test_cylinder_stores_configuration_without_measurements(household):
     assert not hasattr(cylinder, "current_weight")
 
 
-def test_cylinder_api_rejects_full_weight_below_capacity(api_client, household):
+def test_cylinder_api_rejects_negative_tare_weight(api_client, household):
     authenticate(api_client, household.owner)
     response = api_client.post(
         reverse("v1:devices:cylinder-list"),
         {
             "capacity": "6.000",
-            "full_weight": "5.000",
+            "empty_weight": "-1.000",
             "installation_date": str(timezone.localdate()),
             "status": Cylinder.Status.ACTIVE,
         },
         format="json",
     )
     assert response.status_code == 400
-    assert "full_weight" in response.data["detail"]
+    assert "empty_weight" in response.data["detail"]
 
 
 def test_household_cylinder_is_automatically_assigned_without_household_id(api_client, household):
@@ -136,7 +136,7 @@ def test_household_cylinder_is_automatically_assigned_without_household_id(api_c
         reverse("v1:devices:cylinder-list"),
         {
             "capacity": "6.000",
-            "full_weight": "14.000",
+            "empty_weight": "8.000",
             "installation_date": str(timezone.localdate()),
             "status": Cylinder.Status.ACTIVE,
         },
@@ -146,6 +146,7 @@ def test_household_cylinder_is_automatically_assigned_without_household_id(api_c
     assert response.status_code == 201
     assert response.data["household"] == household.id
     assert response.data["empty_weight"] == "8.000"
+    assert response.data["full_weight"] == "14.000"
     assert response.data["latest_weight"] is None
     assert response.data["latest_gas_percentage"] is None
     assert response.data["latest_reading_at"] is None
@@ -162,7 +163,7 @@ def test_household_cannot_override_automatic_cylinder_household(
         {
             "household": other_household.id,
             "capacity": "6.000",
-            "full_weight": "14.000",
+            "empty_weight": "8.000",
             "installation_date": str(timezone.localdate()),
             "status": Cylinder.Status.ACTIVE,
         },
@@ -180,7 +181,7 @@ def test_admin_cylinder_creation_still_requires_household(api_client, admin_user
         reverse("v1:devices:cylinder-list"),
         {
             "capacity": "6.000",
-            "full_weight": "14.000",
+            "empty_weight": "8.000",
             "installation_date": str(timezone.localdate()),
             "status": Cylinder.Status.ACTIVE,
         },
@@ -422,7 +423,7 @@ def test_replacing_cylinder_moves_device_and_preserves_reading_snapshot(api_clie
         reverse("v1:devices:cylinder-replace", args=[cylinder.id]),
         {
             "capacity": "6.000",
-            "full_weight": "14.000",
+            "empty_weight": "8.000",
             "installation_date": str(timezone.localdate()),
         },
         format="json",

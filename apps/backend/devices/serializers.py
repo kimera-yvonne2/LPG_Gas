@@ -56,9 +56,7 @@ class CylinderSerializer(serializers.ModelSerializer):
     latest_weight = serializers.SerializerMethodField()
     latest_gas_percentage = serializers.SerializerMethodField()
     latest_reading_at = serializers.SerializerMethodField()
-    full_weight = serializers.DecimalField(
-        max_digits=8, decimal_places=3, min_value=0, write_only=True
-    )
+    full_weight = serializers.SerializerMethodField()
 
     class Meta:
         model = Cylinder
@@ -79,7 +77,7 @@ class CylinderSerializer(serializers.ModelSerializer):
         )
         read_only_fields = (
             "id",
-            "empty_weight",
+            "full_weight",
             "latest_weight",
             "latest_gas_percentage",
             "latest_reading_at",
@@ -112,6 +110,9 @@ class CylinderSerializer(serializers.ModelSerializer):
             else None
         )
 
+    def get_full_weight(self, obj):
+        return format(obj.empty_weight + obj.capacity, ".3f")
+
     def validate_household(self, household):
         user = self.context["request"].user
         if user.role == User.Role.HOUSEHOLD:
@@ -138,21 +139,12 @@ class CylinderSerializer(serializers.ModelSerializer):
         values = {
             "household": attrs.get("household", getattr(self.instance, "household", None)),
             "capacity": attrs.get("capacity", getattr(self.instance, "capacity", None)),
-            "empty_weight": getattr(self.instance, "empty_weight", None),
+            "empty_weight": attrs.get("empty_weight", getattr(self.instance, "empty_weight", None)),
             "installation_date": attrs.get(
                 "installation_date", getattr(self.instance, "installation_date", None)
             ),
             "status": attrs.get("status", getattr(self.instance, "status", Cylinder.Status.ACTIVE)),
         }
-        full_weight = attrs.pop("full_weight", None)
-        capacity = attrs.get("capacity", getattr(self.instance, "capacity", None))
-        if full_weight is not None and capacity is not None:
-            if full_weight < capacity:
-                raise serializers.ValidationError(
-                    {"full_weight": "Full weight cannot be less than the selected gas capacity."}
-                )
-            attrs["empty_weight"] = full_weight - capacity
-            values["empty_weight"] = attrs["empty_weight"]
         candidate = Cylinder(**values)
         if self.instance:
             candidate.pk = self.instance.pk
@@ -283,24 +275,15 @@ class DeviceClaimSerializer(serializers.Serializer):
 
 
 class CylinderReplacementSerializer(serializers.ModelSerializer):
-    full_weight = serializers.DecimalField(max_digits=8, decimal_places=3, min_value=0)
-
     class Meta:
         model = Cylinder
         fields = (
             "capacity",
-            "full_weight",
+            "empty_weight",
             "installation_date",
         )
 
     def validate(self, attrs):
-        full_weight = attrs.pop("full_weight")
-        capacity = attrs["capacity"]
-        if full_weight < capacity:
-            raise serializers.ValidationError(
-                {"full_weight": "Full weight cannot be less than the selected gas capacity."}
-            )
-        attrs["empty_weight"] = full_weight - capacity
         candidate = Cylinder(
             household=self.context["cylinder"].household,
             status=Cylinder.Status.ACTIVE,
