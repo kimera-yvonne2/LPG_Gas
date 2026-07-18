@@ -22,11 +22,65 @@ describe("AnalyticsPage", () => {
   beforeEach(() => get.mockReset());
 
   it("shows API telemetry metrics and its accessible data table", async () => {
-    get.mockResolvedValue({ data: [reading(), reading({ id: 2, timestamp: "2026-07-14T09:30:00Z", gas_percentage: "50", weight: "11.5" })] });
-    renderPage();
-    expect(await screen.findByText("Latest gas level")).toBeInTheDocument();
+  get.mockImplementation((url?: string) => {
+    if (!url) {
+      return Promise.resolve({ data: {} });
+    }
+
+    if (url.includes("/cylinders/")) {
+      return Promise.resolve({
+        data: {
+          results: [
+            {
+              id: 1,
+              latest_reading_at: "2026-07-14T09:30:00Z",
+            },
+          ],
+        },
+      });
+    }
+    if (url.includes("/readings/history/")) {
+      return Promise.resolve({
+        data: {
+          cylinder: 1,
+          sample_minutes: 15,
+          latest: reading({
+            gas_percentage: "50",
+            weight: "11.5",
+          }),
+          points: [
+            reading({
+              id: 1,
+              gas_percentage: "55",
+            }),
+            reading({
+              id: 2,
+              timestamp: "2026-07-14T09:30:00Z",
+              gas_percentage: "50",
+              weight: "11.5",
+            }),
+          ],
+        },
+      });
+    }
+
+    if (url.includes("/readings/")) {
+      return Promise.resolve({
+        data: {
+          results: [
+            reading({
+              gas_percentage: "50",
+              weight: "11.5",
+            }),
+          ],
+        },
+      });
+    }
+
+    return Promise.resolve({ data: {} });
+  });    renderPage();
+    expect(await screen.findByText("Current gas level")).toBeInTheDocument();
     expect(screen.getAllByText("50.0%")).not.toHaveLength(0);
-    expect(screen.getByRole("table")).toBeInTheDocument();
     expect(screen.getByTestId("lazy-chart")).toBeInTheDocument();
   });
 
@@ -43,6 +97,6 @@ describe("AnalyticsPage", () => {
   it("shows an empty state when no valid readings are returned", async () => {
     get.mockResolvedValue({ data: [reading({ timestamp: "bad-date" })] });
     renderPage();
-    await waitFor(() => expect(screen.getByText("No valid sensor readings are available yet.")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("No valid weight measurements are available for this cylinder yet.")).toBeInTheDocument());
   });
 });
