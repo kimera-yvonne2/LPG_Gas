@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
-import { Activity, AlertTriangle, Gauge, Radio, RefreshCw, Scale, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Gauge, Radio, RefreshCw, Scale, ShieldCheck } from "lucide-react";
 import { PageHeading } from "@/components/ui-kit";
 import { api } from "@/lib/api";
 import { ApiList, Cylinder, Reading, rows } from "@/lib/domain";
