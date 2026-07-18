@@ -38,7 +38,10 @@ def cylinder_list_for(user: User, request: Any | None = None) -> QuerySet[Cylind
     )
     role = getattr(user, "role", None)
     if role == User.Role.HOUSEHOLD:
-        queryset = queryset.filter(household__owner=user).exclude(status=Cylinder.Status.RETIRED)
+        queryset = queryset.filter(household__owner=user)
+        include_retired = getattr(request, "query_params", {}).get("include_retired") == "true"
+        if not include_retired:
+            queryset = queryset.exclude(status=Cylinder.Status.RETIRED)
     elif role == User.Role.TECHNICIAN:
         queryset = queryset.none()
     elif role != User.Role.ADMIN:

@@ -1,6 +1,7 @@
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import filters, mixins, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -81,6 +82,59 @@ class ReadingViewSet(
 
     def get_queryset(self):
         return reading_list_for(self.request.user, self.request)
+
+    @action(detail=False, methods=("get",), url_path="history")
+    def history(self, request):
+        """Return a chart-sized, time-bucketed weight history for one cylinder."""
+        try:
+            cylinder_id = int(request.query_params["cylinder"])
+        except (KeyError, TypeError, ValueError):
+            return Response(
+                {"detail": "A valid cylinder query parameter is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            sample_minutes = int(request.query_params.get("sample_minutes", 15))
+        except ValueError:
+            sample_minutes = 15
+        sample_minutes = min(max(sample_minutes, 1), 1440)
+
+        queryset = (
+            self.get_queryset()
+            .filter(
+                cylinder_id=cylinder_id,
+                weight__isnull=False,
+            )
+            .order_by("timestamp")
+        )
+        latest_reading = queryset.order_by("-timestamp").first()
+        if latest_reading is None:
+            return Response(
+                {"cylinder": cylinder_id, "sample_minutes": sample_minutes, "points": []}
+            )
+
+        points = []
+        current_bucket = None
+        bucket_reading = None
+        for reading in queryset.iterator(chunk_size=2000):
+            reading_bucket = int(reading.timestamp.timestamp() // (sample_minutes * 60))
+            if reading_bucket != current_bucket:
+                if bucket_reading is not None:
+                    points.append(ReadingSerializer(bucket_reading).data)
+                current_bucket = reading_bucket
+            bucket_reading = reading
+        if bucket_reading is not None:
+            points.append(ReadingSerializer(bucket_reading).data)
+
+        return Response(
+            {
+                "cylinder": cylinder_id,
+                "sample_minutes": sample_minutes,
+                "latest": ReadingSerializer(latest_reading).data,
+                "points": points,
+            }
+        )
 
 
 @extend_schema_view(
