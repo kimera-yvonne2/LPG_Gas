@@ -11,11 +11,48 @@
 #include <time.h>
 #include "device_secrets.h"
 
+// Struct definitions must come before any function that uses them, and
+// before Arduino's auto-generated function prototypes get inserted (which
+// happens right after this initial block). Keep these at the very top.
+struct SensorSnapshot {
+  bool weightValid;
+  float currentGrossWeight;
+  int mq2Raw;
+  bool mq2Ready;
+  bool gasLeakDetected;
+  bool hx711Detected;
+  bool tareConfigured;
+};
+
+struct NetSnapshot {
+  bool backendReady;
+  bool deviceConnected;
+  String pairingStatus;
+  String pairingCode;
+};
+
+// -----------------------------------------------------------------------------
+// Architecture note
+// -----------------------------------------------------------------------------
+// Core 1 (the default Arduino loop task) owns: buttons, load cell / MQ-2
+// reading, the local alarm (LED + buzzer), and the OLED. Nothing on Core 1
+// ever calls WiFi/HTTP functions, so it can never freeze waiting on the
+// network, no matter how slow or broken a TLS handshake or HTTP response is.
+//
+// Core 0 runs a dedicated FreeRTOS task (networkTask) that owns: backend
+// health checks, pairing, and telemetry. It is the only place WiFiClientSecure
+// / HTTPClient are used.
+//
+// The two cores share a small set of variables, all accessed through the
+// getters/setters below, which take `stateMutex` for the duration of the
+// read/write. Core 1 never calls oled/Wire functions from within those
+// getters/setters (it reads shared network status, then renders afterward),
+// and Core 0 never touches Wire/OLED at all - only Core 1 renders.
+
 // -----------------------------------------------------------------------------
 // Project configuration
 // -----------------------------------------------------------------------------
 
-// Replace these two values before testing backend communication.
 const char* API_BASE_URL = "https://slms-9k6l.onrender.com/api/v1";
 
 // Google Trust Services GTS Root R4. This is the trust anchor for the current
@@ -59,10 +96,13 @@ const unsigned long TELEMETRY_INTERVAL_MS = 5000UL;
 const unsigned long WIFI_RECHECK_MS = 5000UL;
 const unsigned long BACKEND_RECHECK_MS = 10000UL;
 const unsigned long PAIRING_RECHECK_MS = 3000UL;
+// Once fully connected, re-verify pairing far less often than during initial
+// setup - every re-check pays a full TLS handshake, and there's no need to
+// pay that cost every few seconds once the device is up and running.
+const unsigned long PAIRING_REVALIDATE_MS = 60000UL;
 const unsigned long BUTTON_DEBOUNCE_MS = 50UL;
 const unsigned long ALARM_FLASH_MS = 300UL;
-const unsigned long BACKOFF_BASE_MS = 2000UL;
-const unsigned long BACKOFF_MAX_MS = 300000UL;
+const unsigned long NETWORK_TASK_TICK_MS = 50UL;
 
 const uint8_t WEIGHT_FILTER_SIZE = 10;
 const uint8_t MIN_VALID_WEIGHT_SAMPLES = 5;
@@ -80,17 +120,15 @@ String deviceId;
 String setupAccessPointName;
 String lastOledContent;
 
+// ---- Core 1 owned (sensors/alarm). Written only on Core 1. Read by Core 0
+//      only through getSensorSnapshot(), which takes the mutex. ----
 bool oledAvailable = false;
 bool hx711Detected = false;
 bool tareConfigured = false;
 bool weightValid = false;
 bool mq2Ready = false;
 bool gasLeakDetected = false;
-bool backendReady = false;
-bool deviceConnected = false;
 bool alarmFlashState = false;
-String pairingStatus = "pairing";
-String pairingCode;
 
 float currentGrossWeight = 0.0f;
 int mq2Raw = 0;
@@ -103,11 +141,14 @@ uint8_t weightSampleCount = 0;
 unsigned long bootStartedAt = 0;
 unsigned long lastSensorAt = 0;
 unsigned long lastOledAt = 0;
-unsigned long lastTelemetryAt = 0;
-unsigned long lastWifiCheckAt = 0;
-unsigned long lastBackendCheckAt = 0;
-unsigned long lastPairingCheckAt = 0;
 unsigned long lastAlarmFlashAt = 0;
+
+// ---- Core 0 owned (networking/pairing). Written only on Core 0, through the
+//      setters below. Read by Core 1 only through getNetSnapshot(). ----
+bool backendReady = false;
+bool deviceConnected = false;
+String pairingStatus = "pairing";
+String pairingCode;
 
 uint32_t bootSessionId = 0;
 uint32_t messageSequence = 0;
@@ -122,6 +163,8 @@ struct DebouncedButton {
 
 DebouncedButton resetWifiButton = {PIN_BUTTON_RESET_WIFI, HIGH, HIGH, 0};
 DebouncedButton tareButton = {PIN_BUTTON_TARE, HIGH, HIGH, 0};
+
+SemaphoreHandle_t stateMutex;
 
 // -----------------------------------------------------------------------------
 // Forward declarations
@@ -138,15 +181,74 @@ void resetWifiConfiguration();
 void connectWifiBlocking();
 bool synchronizeClockBlocking(unsigned long timeoutMs);
 bool checkBackendHealth();
-void waitForBackendBlocking();
 bool refreshPairingState(bool bootstrap);
-void waitForPairingBlocking();
-void processCommunications();
+void networkTask(void* parameter);
 bool sendTelemetry();
 String makeMessageId();
 
 // -----------------------------------------------------------------------------
-// Setup and main loop
+// Shared-state accessors (mutex protected)
+// -----------------------------------------------------------------------------
+
+// Called from Core 1 only, at the end of readSensors()/performTare().
+void publishSensorState(bool wValid, float weight, int rawGas, bool gasReady,
+                         bool leak, bool hxOk, bool tared) {
+  xSemaphoreTake(stateMutex, portMAX_DELAY);
+  weightValid = wValid;
+  currentGrossWeight = weight;
+  mq2Raw = rawGas;
+  mq2Ready = gasReady;
+  gasLeakDetected = leak;
+  hx711Detected = hxOk;
+  tareConfigured = tared;
+  xSemaphoreGive(stateMutex);
+}
+
+// Called from Core 0 only (sendTelemetry payload building).
+SensorSnapshot getSensorSnapshot() {
+  SensorSnapshot s;
+  xSemaphoreTake(stateMutex, portMAX_DELAY);
+  s.weightValid = weightValid;
+  s.currentGrossWeight = currentGrossWeight;
+  s.mq2Raw = mq2Raw;
+  s.mq2Ready = mq2Ready;
+  s.gasLeakDetected = gasLeakDetected;
+  s.hx711Detected = hx711Detected;
+  s.tareConfigured = tareConfigured;
+  xSemaphoreGive(stateMutex);
+  return s;
+}
+
+// Called from Core 0 only.
+void setBackendReady(bool v) {
+  xSemaphoreTake(stateMutex, portMAX_DELAY);
+  backendReady = v;
+  xSemaphoreGive(stateMutex);
+}
+
+void setPairingState(bool connected, const String& status, const String& code) {
+  xSemaphoreTake(stateMutex, portMAX_DELAY);
+  deviceConnected = connected;
+  pairingStatus = status;
+  pairingCode = code;
+  xSemaphoreGive(stateMutex);
+}
+
+// Called from Core 1 only (updateOled) and Core 0 (networkTask's own loop
+// condition checks).
+NetSnapshot getNetSnapshot() {
+  NetSnapshot n;
+  xSemaphoreTake(stateMutex, portMAX_DELAY);
+  n.backendReady = backendReady;
+  n.deviceConnected = deviceConnected;
+  n.pairingStatus = pairingStatus;
+  n.pairingCode = pairingCode;
+  xSemaphoreGive(stateMutex);
+  return n;
+}
+
+// -----------------------------------------------------------------------------
+// Setup and main loop (Core 1)
 // -----------------------------------------------------------------------------
 
 void setup() {
@@ -154,10 +256,16 @@ void setup() {
   Serial.setTimeout(100);
   bootStartedAt = millis();
   bootSessionId = esp_random();
-
-  pinMode(PIN_LED_GREEN, OUTPUT);
   pinMode(PIN_LED_RED, OUTPUT);
   pinMode(PIN_BUZZER, OUTPUT);
+  Serial.println("Testing RED LED + BUZZER directly...");
+  digitalWrite(PIN_LED_RED, HIGH);
+  digitalWrite(PIN_BUZZER, HIGH);
+  delay(5000);
+  digitalWrite(PIN_LED_RED, LOW);
+  digitalWrite(PIN_BUZZER, LOW);
+  Serial.println("Test done.");
+  pinMode(PIN_LED_GREEN, OUTPUT);
   pinMode(PIN_MQ2_AOUT, INPUT);
   pinMode(PIN_BUTTON_RESET_WIFI, INPUT_PULLUP);
   pinMode(PIN_BUTTON_TARE, INPUT_PULLUP);
@@ -165,6 +273,8 @@ void setup() {
   digitalWrite(PIN_LED_GREEN, LOW);
   digitalWrite(PIN_LED_RED, LOW);
   digitalWrite(PIN_BUZZER, LOW);
+
+  stateMutex = xSemaphoreCreateMutex();
 
   Wire.begin(PIN_OLED_SDA, PIN_OLED_SCL);
   oledAvailable = oled.begin(SSD1306_SWITCHCAPVCC, OLED_ADDRESS);
@@ -192,13 +302,15 @@ void setup() {
   analogSetPinAttenuation(PIN_MQ2_AOUT, ADC_11db);
 
   scale.begin(PIN_HX711_DT, PIN_HX711_SCK);
+  bool hxOk = false;
+  bool tared = false;
   if (scale.wait_ready_timeout(1000)) {
-    hx711Detected = true;
+    hxOk = true;
     scale.set_scale(LOADCELL_CALIBRATION_FACTOR);
 
     preferences.begin("lpg-device", true);
-    tareConfigured = preferences.isKey("tare_offset");
-    if (tareConfigured) {
+    tared = preferences.isKey("tare_offset");
+    if (tared) {
       savedTareOffset = preferences.getLong("tare_offset", 0);
       scale.set_offset(savedTareOffset);
       Serial.print("Loaded tare offset: ");
@@ -206,28 +318,35 @@ void setup() {
     }
     preferences.end();
   }
+  publishSensorState(false, 0.0f, 0, false, false, hxOk, tared);
 
-  if (!tareConfigured) {
+  if (!tared) {
     Serial.println("No saved tare. Empty the platform and press the TARE button on GPIO 11.");
   }
 
-  // This is intentionally blocking for this project: no telemetry or normal
-  // application operation starts until household Wi-Fi has been configured.
+  // Still intentionally blocking: nothing runs (not even the sensor loop)
+  // until household Wi-Fi is configured. This happens before the network
+  // task is created, so there's no concurrency concern here yet.
   connectWifiBlocking();
 
-  // TLS certificate validation needs a valid clock.
+  // TLS certificate validation needs a valid clock. Also still single
+  // threaded at this point.
   synchronizeClockBlocking(30000UL);
 
-  // Also intentionally blocking: the device does not become operationally
-  // online until Django's health endpoint answers successfully. Local sensing
-  // and the alarm are serviced while waiting for the backend.
-  waitForBackendBlocking();
+  // From here on, Core 1 (this task, via loop()) only ever touches sensors,
+  // the alarm, buttons, and the OLED. All backend/pairing/telemetry work
+  // happens on Core 0 and can never block this core again.
+  xTaskCreatePinnedToCore(
+      networkTask,
+      "NetworkTask",
+      10240,
+      NULL,
+      1,
+      NULL,
+      0  // Core 0
+  );
 
-  // The backend must confirm that this physical unit belongs to a household
-  // and has been connected to a cylinder before telemetry can start.
-  waitForPairingBlocking();
-
-  Serial.println("Device setup complete.");
+  Serial.println("Device setup complete. Network task started on core 0.");
 }
 
 void loop() {
@@ -246,12 +365,11 @@ void loop() {
     updateOled();
   }
 
-  processCommunications();
   delay(2);
 }
 
 // -----------------------------------------------------------------------------
-// Buttons and tare
+// Buttons and tare (Core 1)
 // -----------------------------------------------------------------------------
 
 bool buttonPressedOnce(DebouncedButton& button) {
@@ -304,9 +422,8 @@ void performTare() {
   renderOled("TARE SETUP", "Do not touch", "Reading offset...");
 
   if (!scale.wait_ready_timeout(2000)) {
-    hx711Detected = false;
-    tareConfigured = false;
-    weightValid = false;
+    publishSensorState(false, currentGrossWeight, mq2Raw, mq2Ready,
+                        gasLeakDetected, false, false);
     renderOled("TARE FAILED", "HX711 not ready", "Check wiring");
     delay(2000);
     return;
@@ -321,20 +438,19 @@ void performTare() {
   preferences.end();
 
   if (bytesWritten == 0) {
-    tareConfigured = false;
-    weightValid = false;
+    publishSensorState(false, currentGrossWeight, mq2Raw, mq2Ready,
+                        gasLeakDetected, true, false);
     renderOled("TARE FAILED", "Could not save", "Try again");
     delay(2000);
     return;
   }
 
   scale.set_offset(savedTareOffset);
-  hx711Detected = true;
-  tareConfigured = true;
-  weightValid = false;
   weightSampleIndex = 0;
   weightSampleCount = 0;
   memset(weightSamples, 0, sizeof(weightSamples));
+
+  publishSensorState(false, 0.0f, mq2Raw, mq2Ready, gasLeakDetected, true, true);
 
   Serial.print("Tare saved: ");
   Serial.println(savedTareOffset);
@@ -343,7 +459,7 @@ void performTare() {
 }
 
 // -----------------------------------------------------------------------------
-// Sensors and local alarm
+// Sensors and local alarm (Core 1)
 // -----------------------------------------------------------------------------
 
 void readSensors() {
@@ -352,40 +468,49 @@ void readSensors() {
     mq2Total += analogRead(PIN_MQ2_AOUT);
     delayMicroseconds(100);
   }
-  mq2Raw = static_cast<int>(mq2Total / 8);
-  mq2Ready = millis() - bootStartedAt >= MQ2_WARMUP_MS;
+  int rawGas = static_cast<int>(mq2Total / 8);
+  bool gasReady = millis() - bootStartedAt >= MQ2_WARMUP_MS;
 
-  if (!mq2Ready) {
-    gasLeakDetected = false;
-  } else if (!gasLeakDetected && mq2Raw >= MQ2_LEAK_THRESHOLD) {
-    gasLeakDetected = true;
-  } else if (gasLeakDetected && mq2Raw <= MQ2_CLEAR_THRESHOLD) {
-    gasLeakDetected = false;
+  bool leak = gasLeakDetected;
+  if (!gasReady) {
+    leak = false;
+  } else if (!leak && rawGas >= MQ2_LEAK_THRESHOLD) {
+    leak = true;
+  } else if (leak && rawGas <= MQ2_CLEAR_THRESHOLD) {
+    leak = false;
   }
 
+  bool hxOk = hx711Detected;
+  bool tared = tareConfigured;
+  bool wValid = weightValid;
+  float weight = currentGrossWeight;
+
   if (!scale.wait_ready_timeout(80)) {
-    hx711Detected = false;
-    weightValid = false;
+    hxOk = false;
+    wValid = false;
+    publishSensorState(wValid, weight, rawGas, gasReady, leak, hxOk, tared);
     return;
   }
 
-  if (!hx711Detected) {
+  if (!hxOk) {
     // A recovered HX711 must have calibration and tare reapplied before use.
-    hx711Detected = true;
+    hxOk = true;
     scale.set_scale(LOADCELL_CALIBRATION_FACTOR);
-    if (tareConfigured) {
+    if (tared) {
       scale.set_offset(savedTareOffset);
     }
   }
 
-  if (!tareConfigured) {
-    weightValid = false;
+  if (!tared) {
+    wValid = false;
+    publishSensorState(wValid, weight, rawGas, gasReady, leak, hxOk, tared);
     return;
   }
 
   float measuredWeight = scale.get_units(1);
   if (!isfinite(measuredWeight) || measuredWeight < -0.15f || measuredWeight > 20.0f) {
-    weightValid = false;
+    wValid = false;
+    publishSensorState(wValid, weight, rawGas, gasReady, leak, hxOk, tared);
     return;
   }
 
@@ -404,11 +529,17 @@ void readSensors() {
     total += weightSamples[i];
   }
 
-  currentGrossWeight = total / weightSampleCount;
-  weightValid = weightSampleCount >= MIN_VALID_WEIGHT_SAMPLES;
+  weight = total / weightSampleCount;
+  wValid = weightSampleCount >= MIN_VALID_WEIGHT_SAMPLES;
+
+  publishSensorState(wValid, weight, rawGas, gasReady, leak, hxOk, tared);
 }
 
 void updateAlarm() {
+  Serial.printf("ALARM CHECK: mq2Ready=%d gasLeakDetected=%d mq2Raw=%d\n",
+                mq2Ready, gasLeakDetected, mq2Raw);
+  // These were just written by readSensors() on this same core, moments ago -
+  // safe to read directly without the mutex.
   if (!mq2Ready) {
     digitalWrite(PIN_LED_GREEN, LOW);
     digitalWrite(PIN_LED_RED, HIGH);
@@ -434,7 +565,7 @@ void updateAlarm() {
 }
 
 // -----------------------------------------------------------------------------
-// OLED
+// OLED (Core 1 only - never called from networkTask)
 // -----------------------------------------------------------------------------
 
 void renderOled(const String& line1, const String& line2,
@@ -460,12 +591,38 @@ void renderOled(const String& line1, const String& line2,
 }
 
 void updateOled() {
-  String networkState = WiFi.status() == WL_CONNECTED
-                            ? (backendReady ? "BACKEND ONLINE" : "BACKEND WAIT")
+  NetSnapshot net = getNetSnapshot();
+  bool wifiUp = WiFi.status() == WL_CONNECTED;
+
+  String networkState = wifiUp
+                            ? (net.backendReady ? "BACKEND ONLINE" : "BACKEND WAIT")
                             : "WI-FI OFFLINE";
 
   if (!tareConfigured) {
     renderOled("TARE REQUIRED", "Remove cylinder", "Press GPIO 11", networkState);
+    return;
+  }
+
+  if (!wifiUp) {
+    renderOled("WI-FI OFFLINE", "Reconnecting...", "", networkState);
+    return;
+  }
+
+  if (!net.backendReady) {
+    renderOled("BACKEND CHECK", "Wi-Fi connected", "Waiting for API", "Retrying...");
+    return;
+  }
+
+  if (!net.deviceConnected) {
+    if (net.pairingStatus == "pairing" && net.pairingCode.length() == 6) {
+      renderOled("PAIR DEVICE", "Code: " + net.pairingCode,
+                 "Enter on dashboard", "Waiting for user");
+    } else if (net.pairingStatus == "claimed") {
+      renderOled("DEVICE PAIRED", "Household linked",
+                 "Connect cylinder", "On dashboard");
+    } else {
+      renderOled("PAIRING...", "Contacting backend", "Please wait", "");
+    }
     return;
   }
 
@@ -488,7 +645,8 @@ void updateOled() {
 }
 
 // -----------------------------------------------------------------------------
-// Blocking initial connectivity and backend health
+// Blocking initial connectivity (Core 1, setup() only - runs before the
+// network task is created, so no concurrency concern here)
 // -----------------------------------------------------------------------------
 
 void connectWifiBlocking() {
@@ -497,7 +655,6 @@ void connectWifiBlocking() {
 
   WiFiManager manager;
   manager.setConnectTimeout(20);
-  // No config-portal timeout: remain in setup until valid Wi-Fi is supplied.
   bool connected = manager.autoConnect(setupAccessPointName.c_str(), "admin123");
   if (!connected) {
     ESP.restart();
@@ -524,6 +681,11 @@ bool synchronizeClockBlocking(unsigned long timeoutMs) {
   return ready;
 }
 
+// -----------------------------------------------------------------------------
+// Networking (Core 0 only - all functions below this point run exclusively
+// inside networkTask or functions it calls. Never call renderOled from here.)
+// -----------------------------------------------------------------------------
+
 bool checkBackendHealth() {
   if (WiFi.status() != WL_CONNECTED) {
     return false;
@@ -532,8 +694,8 @@ bool checkBackendHealth() {
   WiFiClientSecure client;
   client.setCACert(ROOT_CA_CERT);
   HTTPClient http;
-  http.setConnectTimeout(5000);
-  http.setTimeout(5000);
+  http.setConnectTimeout(8000);
+  http.setTimeout(8000);
 
   String url = String(API_BASE_URL) + "/health/";
   if (!http.begin(client, url)) {
@@ -546,38 +708,6 @@ bool checkBackendHealth() {
   return status >= 200 && status < 300;
 }
 
-void waitForBackendBlocking() {
-  while (!backendReady) {
-    if (WiFi.status() != WL_CONNECTED) {
-      connectWifiBlocking();
-      synchronizeClockBlocking(30000UL);
-    }
-
-    renderOled("BACKEND CHECK", "Wi-Fi connected", "Waiting for API", "Retrying...");
-    backendReady = checkBackendHealth();
-    if (backendReady) {
-      renderOled("BACKEND ONLINE", "Connection ready", "Device: " + deviceId.substring(deviceId.length() - 6));
-      break;
-    }
-
-    // Keep local monitoring and both buttons operational while Django wakes up.
-    unsigned long retryStartedAt = millis();
-    while (millis() - retryStartedAt < BACKEND_RECHECK_MS) {
-      handleButtons();
-      if (millis() - lastSensorAt >= SENSOR_INTERVAL_MS) {
-        lastSensorAt = millis();
-        readSensors();
-        updateAlarm();
-      }
-      delay(5);
-    }
-  }
-}
-
-// -----------------------------------------------------------------------------
-// Household pairing
-// -----------------------------------------------------------------------------
-
 bool refreshPairingState(bool bootstrap) {
   if (WiFi.status() != WL_CONNECTED) {
     return false;
@@ -586,8 +716,8 @@ bool refreshPairingState(bool bootstrap) {
   WiFiClientSecure client;
   client.setCACert(ROOT_CA_CERT);
   HTTPClient http;
-  http.setConnectTimeout(5000);
-  http.setTimeout(5000);
+  http.setConnectTimeout(8000);
+  http.setTimeout(8000);
 
   String endpoint = bootstrap ? "/device/bootstrap/" : "/device/config/";
   if (!http.begin(client, String(API_BASE_URL) + endpoint)) {
@@ -607,9 +737,6 @@ bool refreshPairingState(bool bootstrap) {
     Serial.println(responseBody);
   }
   if (status < 200 || status >= 300) {
-    if (status == 401 || status == 403 || status == 404) {
-      renderOled("DEVICE NOT READY", "Provision device", "Check ID/secret");
-    }
     return false;
   }
 
@@ -619,126 +746,30 @@ bool refreshPairingState(bool bootstrap) {
     return false;
   }
 
-  pairingStatus = response["status"] | "pairing";
+  NetSnapshot current = getNetSnapshot();
+  String newStatus = response["status"] | "pairing";
+  String newCode = current.pairingCode;
   if (response["pairing_code_expired"] | false) {
-    pairingCode = "";
+    newCode = "";
   }
   if (response["pairing_code"].is<const char*>()) {
-    pairingCode = response["pairing_code"].as<String>();
+    newCode = response["pairing_code"].as<String>();
   }
-  deviceConnected = pairingStatus == "connected";
+  bool connected = newStatus == "connected";
+
+  setPairingState(connected, newStatus, newCode);
   return true;
 }
 
-void waitForPairingBlocking() {
-  deviceConnected = false;
-  pairingCode = "";
-
-  while (!deviceConnected) {
-    if (WiFi.status() != WL_CONNECTED) {
-      backendReady = false;
-      connectWifiBlocking();
-      synchronizeClockBlocking(30000UL);
-      waitForBackendBlocking();
-    }
-
-    bool needsCode = pairingStatus == "pairing" && pairingCode.length() != 6;
-    bool pairingRequestSucceeded = refreshPairingState(needsCode);
-
-    if (!pairingRequestSucceeded) {
-      renderOled("PAIRING ERROR", "Backend rejected", "Check Serial Monitor",
-                 "Retrying...");
-    } else if (pairingStatus == "pairing" && pairingCode.length() != 6) {
-      renderOled("PAIRING ERROR", "No code received", "Check backend API",
-                 "Retrying...");
-    } else if (pairingStatus == "pairing") {
-      renderOled("PAIR DEVICE", "Code: " + pairingCode,
-                 "Enter on dashboard", "Waiting for user");
-    } else if (pairingStatus == "claimed") {
-      renderOled("DEVICE PAIRED", "Household linked",
-                 "Connect cylinder", "On dashboard");
-    } else if (pairingStatus == "connected") {
-      deviceConnected = true;
-      renderOled("DEVICE READY", "Household linked",
-                 "Cylinder linked", "Telemetry enabled");
-      delay(1500);
-      break;
-    }
-
-    unsigned long startedAt = millis();
-    while (millis() - startedAt < PAIRING_RECHECK_MS) {
-      handleButtons();
-      if (millis() - lastSensorAt >= SENSOR_INTERVAL_MS) {
-        lastSensorAt = millis();
-        readSensors();
-        updateAlarm();
-      }
-      delay(5);
-    }
-
-    // Poll config after bootstrap. If the code expires, bootstrap will issue a
-    // fresh code after the backend rejects/clears it during a later attempt.
-    if (pairingCode.length() == 6) {
-      refreshPairingState(false);
-    }
-  }
-}
-
-// -----------------------------------------------------------------------------
-// Runtime communications and telemetry
-// -----------------------------------------------------------------------------
-
-void processCommunications() {
-  unsigned long now = millis();
-
-  if (WiFi.status() != WL_CONNECTED) {
-    backendReady = false;
-    if (now - lastWifiCheckAt >= WIFI_RECHECK_MS) {
-      lastWifiCheckAt = now;
-      WiFi.reconnect();
-    }
-    return;  // Never attempt telemetry while offline.
-  }
-
-  if (!backendReady) {
-    if (now - lastBackendCheckAt >= BACKEND_RECHECK_MS) {
-      lastBackendCheckAt = now;
-      backendReady = checkBackendHealth();
-    }
-    return;  // Never attempt telemetry until health verification passes.
-  }
-
-  if (now - lastPairingCheckAt >= BACKEND_RECHECK_MS) {
-    lastPairingCheckAt = now;
-    if (!refreshPairingState(false)) {
-      return;
-    }
-    if (!deviceConnected) {
-      pairingCode = "";
-      waitForPairingBlocking();
-      return;
-    }
-  }
-
-  if (!deviceConnected) {
-    return;  // Never send data until household and cylinder pairing is complete.
-  }
-
-  bool leakChanged = mq2Ready && gasLeakDetected != lastReportedLeakState;
-  bool normalIntervalElapsed = now - lastTelemetryAt >= TELEMETRY_INTERVAL_MS;
-
-  if (leakChanged || normalIntervalElapsed) {
-    sendTelemetry();
-  }
-}
-
 bool sendTelemetry() {
+  SensorSnapshot s = getSensorSnapshot();
+
   WiFiClientSecure client;
   client.setCACert(ROOT_CA_CERT);
 
   HTTPClient http;
-  http.setConnectTimeout(5000);
-  http.setTimeout(5000);
+  http.setConnectTimeout(10000);
+  http.setTimeout(10000);
 
   String url = String(API_BASE_URL) + "/device/telemetry/";
   if (!http.begin(client, url)) {
@@ -751,29 +782,30 @@ bool sendTelemetry() {
 
   JsonDocument payload;
   payload["message_id"] = makeMessageId();
-  if (weightValid) {
-    payload["weight"] = roundf(currentGrossWeight * 1000.0f) / 1000.0f;
+  if (s.weightValid) {
+    payload["weight"] = roundf(s.currentGrossWeight * 1000.0f) / 1000.0f;
   } else {
     payload["weight"] = nullptr;
   }
-  payload["mq2_raw"] = mq2Raw;
-  payload["mq2_ready"] = mq2Ready;
-  payload["gas_leak_detected"] = mq2Ready ? gasLeakDetected : false;
-  payload["hx711_ok"] = hx711Detected && tareConfigured && weightValid;
+  payload["mq2_raw"] = s.mq2Raw;
+  payload["mq2_ready"] = s.mq2Ready;
+  payload["gas_leak_detected"] = s.mq2Ready ? s.gasLeakDetected : false;
+  payload["hx711_ok"] = s.hx711Detected && s.tareConfigured && s.weightValid;
 
   String body;
   serializeJson(payload, body);
 
   int status = http.POST(body);
 
-  // Don't use getString() — its chunked-transfer parser is unreliable.
-  // We only need the status code; read+discard the body manually via the stream.
+  // Drain and discard the body ourselves rather than calling getString() -
+  // its chunked-transfer parser is unreliable through the Cloudflare/Render
+  // proxy path and can hang. We only need the status code.
   if (status > 0) {
     WiFiClient* stream = http.getStreamPtr();
     unsigned long streamStart = millis();
     while (http.connected() && (millis() - streamStart < 3000)) {
       while (stream->available()) {
-        stream->read();  // discard
+        stream->read();
       }
       if (!stream->available() && !http.connected()) break;
       delay(1);
@@ -785,15 +817,82 @@ bool sendTelemetry() {
   Serial.printf("Telemetry response: %d\n", status);
 
   if (status >= 200 && status < 300) {
-    lastTelemetryAt = millis();
-    lastReportedLeakState = gasLeakDetected;
+    lastReportedLeakState = s.gasLeakDetected;
     return true;
   }
 
   if (status == 401 || status == 403 || status == 404) {
-    backendReady = false;
+    setBackendReady(false);
   }
   return false;
+}
+
+// -----------------------------------------------------------------------------
+// Network task (Core 0)
+// -----------------------------------------------------------------------------
+
+void networkTask(void* parameter) {
+  unsigned long lastWifiCheckAt = 0;
+  unsigned long lastBackendCheckAt = 0;
+  unsigned long lastPairingCheckAt = 0;
+  unsigned long lastTelemetryAt = 0;
+
+  for (;;) {
+    unsigned long now = millis();
+
+    if (WiFi.status() != WL_CONNECTED) {
+      setBackendReady(false);
+      if (now - lastWifiCheckAt >= WIFI_RECHECK_MS) {
+        lastWifiCheckAt = now;
+        WiFi.reconnect();
+      }
+      vTaskDelay(pdMS_TO_TICKS(NETWORK_TASK_TICK_MS));
+      continue;
+    }
+
+    NetSnapshot net = getNetSnapshot();
+
+    if (!net.backendReady) {
+      if (now - lastBackendCheckAt >= BACKEND_RECHECK_MS) {
+        lastBackendCheckAt = now;
+        bool ok = checkBackendHealth();
+        setBackendReady(ok);
+      }
+      vTaskDelay(pdMS_TO_TICKS(NETWORK_TASK_TICK_MS));
+      continue;
+    }
+
+    if (!net.deviceConnected) {
+      if (now - lastPairingCheckAt >= PAIRING_RECHECK_MS) {
+        lastPairingCheckAt = now;
+        bool needsCode = net.pairingStatus == "pairing" && net.pairingCode.length() != 6;
+        refreshPairingState(needsCode);
+      }
+      vTaskDelay(pdMS_TO_TICKS(NETWORK_TASK_TICK_MS));
+      continue;
+    }
+
+    // Fully connected: periodically re-verify pairing hasn't been revoked,
+    // and send telemetry on schedule or immediately on a leak-state change.
+    if (now - lastPairingCheckAt >= PAIRING_REVALIDATE_MS) {
+      lastPairingCheckAt = now;
+      refreshPairingState(false);
+      // If that just flipped deviceConnected to false, the next loop
+      // iteration will drop back into the pairing branch above.
+    }
+
+    SensorSnapshot s = getSensorSnapshot();
+    bool leakChanged = s.mq2Ready && s.gasLeakDetected != lastReportedLeakState;
+    bool intervalElapsed = now - lastTelemetryAt >= TELEMETRY_INTERVAL_MS;
+
+    if (leakChanged || intervalElapsed) {
+      if (sendTelemetry()) {
+        lastTelemetryAt = millis();
+      }
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(NETWORK_TASK_TICK_MS));
+  }
 }
 
 String makeMessageId() {
