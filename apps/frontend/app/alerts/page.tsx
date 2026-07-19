@@ -1,99 +1,95 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, CheckCircle2, Weight } from "lucide-react";
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AlertTriangle, Bell, CheckCircle2 } from "lucide-react";
+import Link from "next/link";
 import { PageHeading } from "@/components/ui-kit";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { Alert, ApiList, rows } from "@/lib/domain";
+import { ApiList, rows, UserNotification } from "@/lib/domain";
 
-export default function AlertsPage() {
+export default function NotificationsPage() {
   const { user, loading } = useAuth();
-  const router = useRouter();
-  useEffect(() => {
-    if (!loading && user?.role === "admin") router.replace("/dashboard");
-  }, [loading, router, user]);
+  const queryClient = useQueryClient();
   const query = useQuery({
-    queryKey: ["alerts"],
-    enabled: user?.role === "household",
-    queryFn: async () =>
-      (
-        await api.get<ApiList<Alert>>(
-          "/alerts/?page_size=100",
-        )
-      ).data,
+    queryKey: ["notifications"],
+    enabled: Boolean(user),
+    refetchInterval: 15_000,
+    queryFn: async () => (
+      await api.get<ApiList<UserNotification>>("/notifications/?page_size=100")
+    ).data,
   });
-  if (loading || user?.role !== "household") return null;
-  const alerts = rows(query.data).flatMap((reading) => {
-    const items: {
-      key: string;
-      title: string;
-      text: string;
-      timestamp: string;
-      severity: "critical" | "warning";
-    }[] = [];
-    items.push({
-      key: String(reading.id),
-      title: reading.title,
-      text: reading.message,
-      timestamp: reading.created_at,
-      severity: reading.severity,
-    });
-    return items;
+  const markRead = useMutation({
+    mutationFn: async (id: number) => api.post(`/notifications/${id}/mark-read/`),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+        queryClient.invalidateQueries({ queryKey: ["notification-unread-count"] }),
+      ]);
+    },
   });
+  const markAllRead = useMutation({
+    mutationFn: async () => api.post("/notifications/mark-all-read/"),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+        queryClient.invalidateQueries({ queryKey: ["notification-unread-count"] }),
+      ]);
+    },
+  });
+
+  if (loading || !user) return null;
+  const notifications = rows(query.data);
+  const unread = notifications.filter((notification) => !notification.is_read).length;
+
   return (
     <div className="mx-auto max-w-[1180px]">
       <PageHeading
-        title="Safety Alerts"
-        subtitle="Alerts calculated from live sensor readings; no sample events are shown."
+        title="Notifications"
+        subtitle="Safety, refill, device, and account updates for your LPG Guardian account."
+        action={unread > 0 ? <button type="button" disabled={markAllRead.isPending} onClick={() => markAllRead.mutate()} className="btn-secondary">Mark all read</button> : undefined}
       />
       {query.isLoading ? (
-        <State text="Checking telemetry…" />
+        <State text="Checking notifications…" />
       ) : query.isError ? (
-        <State text="Telemetry could not be loaded." />
-      ) : !alerts.length ? (
+        <State text="Notifications could not be loaded." />
+      ) : !notifications.length ? (
         <div className="card grid min-h-64 place-items-center text-center">
           <div>
             <CheckCircle2 className="mx-auto text-green-700" size={35} />
-            <h2 className="section-title mt-3">No active telemetry alerts</h2>
-            <p className="mt-1 text-xs text-slate-500">
-              No gas-leak or low-gas readings were found.
-            </p>
+            <h2 className="section-title mt-3">No notifications yet</h2>
+            <p className="mt-1 text-xs text-slate-500">Important activity will appear here.</p>
           </div>
         </div>
       ) : (
         <div className="space-y-3">
-          {alerts.map((alert) => (
-            <article
-              key={alert.key}
-              className={`card flex gap-4 border-l-4 p-4 ${alert.severity === "critical" ? "border-l-red-600" : "border-l-orange-500"}`}
+          {notifications.map((notification) => (
+            <Link
+              href={notification.target_url}
+              key={notification.id}
+              onClick={() => { if (!notification.is_read) markRead.mutate(notification.id); }}
+              className={`card flex gap-4 border-l-4 p-4 transition hover:bg-slate-50 ${notification.severity === "critical" ? "border-l-red-600" : notification.severity === "warning" ? "border-l-orange-500" : "border-l-blue-500"}`}
             >
-              <span className="grid h-9 w-9 place-items-center rounded bg-orange-50 text-orange-700">
-                <Weight size={18} />
+              <span className={`grid h-9 w-9 shrink-0 place-items-center rounded ${notification.is_read ? "bg-slate-100 text-slate-500" : "bg-blue-50 text-[#073b82]"}`}>
+                <Bell size={18} />
               </span>
               <div className="flex-1">
-                <h2 className="text-sm font-extrabold">{alert.title}</h2>
-                <p className="mt-1 text-xs text-slate-600">{alert.text}</p>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-extrabold">{notification.title}</h2>
+                  {!notification.is_read && <span className="h-2 w-2 rounded-full bg-[#0b58b5]" aria-label="Unread" />}
+                </div>
+                <p className="mt-1 text-xs text-slate-600">{notification.message}</p>
+                <span className="mt-2 inline-block text-[9px] font-bold uppercase tracking-wide text-slate-400">{notification.category}</span>
               </div>
-              <time className="text-[10px] text-slate-500">
-                {new Date(alert.timestamp).toLocaleString()}
-              </time>
-            </article>
+              <time className="text-[10px] text-slate-500">{new Date(notification.created_at).toLocaleString()}</time>
+            </Link>
           ))}
         </div>
       )}
     </div>
   );
 }
+
 function State({ text }: { text: string }) {
-  return (
-    <div className="card grid min-h-64 place-items-center text-sm text-slate-500">
-      <span className="flex items-center gap-2">
-        <AlertTriangle size={16} />
-        {text}
-      </span>
-    </div>
-  );
+  return <div className="card grid min-h-64 place-items-center text-sm text-slate-500"><span className="flex items-center gap-2"><AlertTriangle size={16} />{text}</span></div>;
 }

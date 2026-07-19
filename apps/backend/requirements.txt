@@ -10,3 +10,4 @@ python-dotenv==1.1.1
 celery[redis]==5.5.3
 gunicorn==23.0.0
 whitenoise==6.9.0
+pywebpush==2.0.3

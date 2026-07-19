@@ -1,12 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.db.models import Q
-from django.utils import timezone
-from drf_spectacular.utils import (
-    OpenApiExample,
-    OpenApiParameter,
-    extend_schema,
-    extend_schema_view,
-)
+from drf_spectacular.utils import OpenApiExample, extend_schema, extend_schema_view
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -20,23 +14,12 @@ from accounts.permissions import IsAdminRole
 from accounts.selectors import user_list
 from accounts.serializers import (
     AdminUserWriteSerializer,
-    EmailVerificationSerializer,
     LoginSerializer,
     LogoutSerializer,
-    PasswordResetConfirmSerializer,
-    PasswordResetRequestSerializer,
     RegistrationSerializer,
-    ResendVerificationSerializer,
     UserSerializer,
 )
-from accounts.services import (
-    can_resend_verification,
-    delete_household_account,
-    send_password_reset_email,
-    send_verification_email,
-    verify_email,
-)
-from alerts.services import queue_email
+from accounts.services import delete_household_account
 
 User = get_user_model()
 
@@ -59,11 +42,8 @@ class RegistrationView(APIView):
         return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
 
 
-class LoginView(TokenObtainPairView):
-    permission_classes = [AllowAny]
-    serializer_class = LoginSerializer
-
-    @extend_schema(
+@extend_schema_view(
+    post=extend_schema(
         tags=["Authentication"],
         summary="Log in with email and password",
         request=LoginSerializer,
@@ -75,26 +55,10 @@ class LoginView(TokenObtainPairView):
             )
         ],
     )
-    def post(self, request, *args, **kwargs):
-        response = super().post(request, *args, **kwargs)
-        if response.status_code == status.HTTP_200_OK:
-            user_data = response.data.get("user", {})
-            if user_data.get("role") == User.Role.HOUSEHOLD:
-                forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
-                ip_address = forwarded.split(",", 1)[0].strip() or request.META.get(
-                    "REMOTE_ADDR", "unknown"
-                )
-                queue_email(
-                    subject="LPG Guardian: New login to your account",
-                    body=(
-                        "A successful password login was made to your LPG Guardian account.\n\n"
-                        f"Time: {timezone.now():%Y-%m-%d %H:%M:%S %Z}\n"
-                        f"IP address: {ip_address}\n\n"
-                        "If this was not you, reset your password immediately."
-                    ),
-                    recipients=[user_data.get("email", "")],
-                )
-        return response
+)
+class LoginView(TokenObtainPairView):
+    permission_classes = [AllowAny]
+    serializer_class = LoginSerializer
 
 
 class RefreshView(TokenRefreshView):
@@ -125,88 +89,6 @@ class LogoutView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         return Response(status=status.HTTP_204_NO_CONTENT)
-
-
-class PasswordResetRequestView(APIView):
-    permission_classes = [AllowAny]
-
-    @extend_schema(
-        tags=["Authentication"],
-        summary="Request a password reset",
-        request=PasswordResetRequestSerializer,
-        responses={202: None},
-        description="Always returns the same response to prevent account enumeration.",
-    )
-    def post(self, request):
-        serializer = PasswordResetRequestSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = User.objects.filter(
-            email__iexact=serializer.validated_data["email"], is_active=True
-        ).first()
-        if user:
-            send_password_reset_email(user)
-        return Response(status=status.HTTP_202_ACCEPTED)
-
-
-class PasswordResetConfirmView(APIView):
-    permission_classes = [AllowAny]
-
-    @extend_schema(
-        tags=["Authentication"],
-        summary="Confirm a password reset",
-        request=PasswordResetConfirmSerializer,
-        responses={204: None},
-    )
-    def post(self, request):
-        serializer = PasswordResetConfirmSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-
-class EmailVerificationView(APIView):
-    permission_classes = [AllowAny]
-
-    @extend_schema(
-        tags=["Authentication"],
-        summary="Verify an email address",
-        parameters=[OpenApiParameter("token", str, OpenApiParameter.QUERY, required=True)],
-        responses={204: None},
-    )
-    def get(self, request):
-        serializer = EmailVerificationSerializer(data=request.query_params)
-        serializer.is_valid(raise_exception=True)
-        try:
-            verify_email(serializer.validated_data["token"])
-        except User.DoesNotExist:
-            return Response(
-                {"token": ["Invalid or already-used verification token."]},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-
-class ResendVerificationView(APIView):
-    permission_classes = [AllowAny]
-
-    @extend_schema(
-        tags=["Authentication"],
-        summary="Resend an email-verification message",
-        request=ResendVerificationSerializer,
-        responses={202: None},
-        description="Always returns the same response to prevent account enumeration.",
-    )
-    def post(self, request):
-        serializer = ResendVerificationSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = User.objects.filter(
-            email__iexact=serializer.validated_data["email"],
-            is_active=True,
-            email_verified=False,
-        ).first()
-        if user and can_resend_verification(user):
-            send_verification_email(user)
-        return Response(status=status.HTTP_202_ACCEPTED)
 
 
 @extend_schema_view(
