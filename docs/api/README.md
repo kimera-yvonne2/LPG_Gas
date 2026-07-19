@@ -15,16 +15,14 @@ The device-ingestion contract is deliberately not specified until sensor identit
 
 Authentication endpoints are under `/api/v1/auth/`:
 
-- `POST register/`: public household registration and verification email.
-- `POST login/`: verified-user login; returns access, refresh, and user data.
+- `POST register/`: public household registration; the account is active immediately.
+- `POST login/`: active-user login; returns access, refresh, and user data.
 - `POST token/refresh/`: rotates refresh tokens and blacklists replaced tokens.
 - `POST logout/`: revokes the submitted refresh token.
-- `POST password/reset/` and `POST password/reset/confirm/`: enumeration-safe reset flow.
-- `GET email/verify/` and `POST email/resend/`: one-time verification and rate-limited resend.
 - `GET /api/v1/users/me/`: current authenticated profile.
 - `/api/v1/users/`: admin-role-only user and role management.
 
-Access tokens contain `role` and `email_verified` claims. Server-side DRF permissions remain authoritative; clients must never treat token claims or hidden UI controls as authorization. Public registration always creates a `household`. Only an authenticated `admin` role may assign `admin`, `service_provider`, or `technician` roles.
+Access tokens contain `role` and the legacy `email_verified` compatibility claim. Server-side DRF permissions remain authoritative; clients must never treat token claims or hidden UI controls as authorization. Public registration always creates a `household`. Only an authenticated `admin` role may assign `admin`, `service_provider`, or `technician` roles. The application does not send email; account recovery and password changes are handled by an administrator.
 
 ## LPG asset management
 

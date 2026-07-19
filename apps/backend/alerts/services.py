@@ -4,19 +4,12 @@ from django.db import transaction
 from django.utils import timezone
 
 from alerts.models import Alert, Notification, NotificationDelivery, PushSubscription
-from alerts.tasks import send_notification_email_task, send_web_push_task
+from alerts.tasks import send_web_push_task
 
 LOW_GAS_THRESHOLD = Decimal("15.00")
 LOW_GAS_RESET_THRESHOLD = Decimal("20.00")
 EMPTY_GAS_THRESHOLD = Decimal("1.00")
 EMPTY_GAS_RESET_THRESHOLD = Decimal("5.00")
-
-
-def queue_email(*, subject: str, body: str, recipients: list[str]) -> None:
-    recipients = [address for address in recipients if address]
-    transaction.on_commit(
-        lambda: send_notification_email_task.delay(subject, body, recipients), robust=True
-    )
 
 
 def create_notification(
@@ -105,11 +98,6 @@ def _create(reading, *, kind: str, severity: str, title: str, message: str) -> N
                     target_url="/alerts",
                     event_key=f"alert:{alert.id}:created",
                 )
-        queue_email(
-            subject=f"LPG Guardian: {title}",
-            body=f"{message}\n\nRecorded at {reading.timestamp:%Y-%m-%d %H:%M:%S %Z}.",
-            recipients=[owner.email],
-        )
 
 
 def process_reading_alerts(reading) -> None:
@@ -134,7 +122,7 @@ def process_reading_alerts(reading) -> None:
             ),
         )
     else:
-        # A clear flag only re-arms detection. It intentionally sends no email.
+        # A clear flag only re-arms detection and does not create a notification.
         _resolve(cylinder_id, Alert.Kind.GAS_LEAK)
 
     percentage = reading.gas_percentage

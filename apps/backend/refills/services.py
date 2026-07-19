@@ -5,7 +5,7 @@ from rest_framework.exceptions import ValidationError
 
 from accounts.models import User
 from alerts.models import Notification
-from alerts.services import create_notification, queue_email
+from alerts.services import create_notification
 from refills.models import RefillRequest
 
 
@@ -54,14 +54,6 @@ def transition_refill_request(*, refill_request_id: int, status: str, actor: Use
         target_url="/refills",
         event_key=f"refill:{refill_request.id}:status:{status}",
     )
-    queue_email(
-        subject=f"LPG Guardian: Refill request {refill_request.get_status_display()}",
-        body=(
-            f"Your refill request #{refill_request.id} status changed to "
-            f"{refill_request.get_status_display()}."
-        ),
-        recipients=[owner.email],
-    )
     if status == RefillRequest.Status.CANCELLED and actor.role == User.Role.HOUSEHOLD:
         technician = refill_request.assigned_technician
         if technician:
@@ -73,10 +65,5 @@ def transition_refill_request(*, refill_request_id: int, status: str, actor: Use
                 message=f"{owner.username} cancelled refill request #{refill_request.id}.",
                 target_url="/refills",
                 event_key=f"refill:{refill_request.id}:cancelled-by-household",
-            )
-            queue_email(
-                subject="LPG Guardian: Refill request cancelled",
-                body=f"{owner.username} cancelled refill request #{refill_request.id}.",
-                recipients=[technician.email],
             )
     return refill_request

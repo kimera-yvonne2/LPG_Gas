@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from accounts.models import User
 from alerts.models import Notification
-from alerts.services import create_notification, queue_email
+from alerts.services import create_notification
 from refills.models import RefillRequest
 
 
@@ -102,13 +102,5 @@ class RefillRequestSerializer(serializers.ModelSerializer):
                 ),
                 target_url="/refills",
                 event_key=f"refill:{refill_request.id}:created",
-            )
-            queue_email(
-                subject="LPG Guardian: New refill request",
-                body=(
-                    f"{refill_request.household.owner.username} sent refill request "
-                    f"#{refill_request.id}. Please sign in to review it."
-                ),
-                recipients=[technician.email],
             )
         return refill_request

@@ -1,8 +1,5 @@
 import pytest
-from django.contrib.auth.tokens import default_token_generator
 from django.urls import reverse
-from django.utils.encoding import force_bytes
-from django.utils.http import urlsafe_base64_encode
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import AccessToken
 
@@ -51,7 +48,7 @@ def login(api_client, user):
     return response.data
 
 
-def test_registration_creates_active_household_without_verification_email(api_client, mailoutbox):
+def test_registration_creates_active_household(api_client):
     response = api_client.post(
         reverse("v1:accounts:register"),
         {
@@ -70,12 +67,9 @@ def test_registration_creates_active_household_without_verification_email(api_cl
     assert user.email_verified
     assert user.check_password("Stronger-Pass-123!")
     assert user.household.owner_id == user.id
-    assert len(mailoutbox) == 0
 
 
-def test_registration_ignores_privileged_role_and_rejects_duplicate_email(
-    api_client, household, mailoutbox
-):
+def test_registration_ignores_privileged_role_and_rejects_duplicate_email(api_client, household):
     privileged = api_client.post(
         reverse("v1:accounts:register"),
         {
@@ -146,54 +140,6 @@ def test_logout_blacklists_refresh_token(api_client, household):
         format="json",
     )
     assert response.status_code == 401
-
-
-def test_email_verification_token_is_one_time(api_client):
-    user = User.objects.create_user(
-        email="verify@example.com", username="verify", password="Stronger-Pass-123!"
-    )
-    url = reverse("v1:accounts:email-verify")
-    first = api_client.get(url, {"token": user.email_verification_token})
-    second = api_client.get(url, {"token": user.email_verification_token})
-    assert first.status_code == 204
-    assert second.status_code == 400
-    user.refresh_from_db()
-    assert user.email_verified
-
-
-def test_password_reset_is_enumeration_safe_and_changes_password(api_client, household, mailoutbox):
-    request_url = reverse("v1:accounts:password-reset")
-    assert api_client.post(request_url, {"email": "missing@example.com"}).status_code == 202
-    assert len(mailoutbox) == 0
-    assert api_client.post(request_url, {"email": household.email}).status_code == 202
-    assert len(mailoutbox) == 1
-
-    uid = urlsafe_base64_encode(force_bytes(household.pk))
-    token = default_token_generator.make_token(household)
-    response = api_client.post(
-        reverse("v1:accounts:password-reset-confirm"),
-        {
-            "uid": uid,
-            "token": token,
-            "password": "Even-Stronger-456!",
-            "password_confirm": "Even-Stronger-456!",
-        },
-        format="json",
-    )
-    assert response.status_code == 204
-    household.refresh_from_db()
-    assert household.check_password("Even-Stronger-456!")
-
-
-def test_resend_verification_is_enumeration_safe_and_rate_limited(api_client, mailoutbox):
-    user = User.objects.create_user(
-        email="resend@example.com", username="resend", password="Stronger-Pass-123!"
-    )
-    url = reverse("v1:accounts:email-verification-resend")
-    assert api_client.post(url, {"email": user.email}).status_code == 202
-    assert api_client.post(url, {"email": user.email}).status_code == 202
-    assert api_client.post(url, {"email": "missing@example.com"}).status_code == 202
-    assert len(mailoutbox) == 1
 
 
 def test_authenticated_user_can_read_me(api_client, household):
@@ -318,4 +264,5 @@ def test_openapi_schema_documents_authentication_endpoints(api_client):
     paths = response.json()["paths"]
     assert "/api/v1/auth/register/" in paths
     assert "/api/v1/auth/login/" in paths
-    assert "/api/v1/auth/password/reset/confirm/" in paths
+    assert "/api/v1/auth/password/reset/" not in paths
+    assert "/api/v1/auth/email/resend/" not in paths
