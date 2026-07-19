@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from accounts.models import User
+from alerts.services import queue_email
 from refills.models import RefillRequest
 
 
@@ -86,4 +87,15 @@ class RefillRequestSerializer(serializers.ModelSerializer):
             validated_data["source"] = RefillRequest.Source.MANUAL
         elif "household" not in validated_data:
             raise serializers.ValidationError({"household": "This field is required."})
-        return RefillRequest.objects.create(**validated_data)
+        refill_request = RefillRequest.objects.create(**validated_data)
+        technician = refill_request.assigned_technician
+        if technician:
+            queue_email(
+                subject="LPG Guardian: New refill request",
+                body=(
+                    f"{refill_request.household.owner.username} sent refill request "
+                    f"#{refill_request.id}. Please sign in to review it."
+                ),
+                recipients=[technician.email],
+            )
+        return refill_request

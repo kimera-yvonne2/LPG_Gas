@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { PageHeading } from "@/components/ui-kit";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { ApiList, Reading, rows } from "@/lib/domain";
+import { Alert, ApiList, rows } from "@/lib/domain";
 
 export default function AlertsPage() {
   const { user, loading } = useAuth();
@@ -16,12 +16,12 @@ export default function AlertsPage() {
     if (!loading && user?.role === "admin") router.replace("/dashboard");
   }, [loading, router, user]);
   const query = useQuery({
-    queryKey: ["readings", "alerts"],
+    queryKey: ["alerts"],
     enabled: user?.role === "household",
     queryFn: async () =>
       (
-        await api.get<ApiList<Reading>>(
-          "/readings/?ordering=-timestamp&page_size=100",
+        await api.get<ApiList<Alert>>(
+          "/alerts/?page_size=100",
         )
       ).data,
   });
@@ -34,26 +34,13 @@ export default function AlertsPage() {
       timestamp: string;
       severity: "critical" | "warning";
     }[] = [];
-    const cylinderLabel = `Cylinder #${reading.cylinder}`;
-    if (reading.gas_leak_detected)
-      items.push({
-        key: `${reading.id}-leak`,
-        title: "Gas leak detected",
-        text: `${cylinderLabel} reported a gas leak.`,
-        timestamp: reading.timestamp,
-        severity: "critical",
-      });
-    if (
-      reading.gas_percentage !== null &&
-      Number(reading.gas_percentage) <= 15
-    )
-      items.push({
-        key: `${reading.id}-gas`,
-        title: "Low gas level",
-        text: `${cylinderLabel} has ${reading.gas_percentage}% remaining.`,
-        timestamp: reading.timestamp,
-        severity: Number(reading.gas_percentage) <= 5 ? "critical" : "warning",
-      });
+    items.push({
+      key: String(reading.id),
+      title: reading.title,
+      text: reading.message,
+      timestamp: reading.created_at,
+      severity: reading.severity,
+    });
     return items;
   });
   return (
