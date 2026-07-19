@@ -44,13 +44,19 @@ export function WebPushSettings() {
     }
   };
 
-  const unavailable = status === "unsupported" || status === "server-disabled" || status === "blocked";
+  const unavailable =
+    status === "unsupported" ||
+    status === "insecure" ||
+    status === "server-disabled" ||
+    status === "blocked";
   const detail = status === "unsupported"
     ? "This browser does not support Web Push."
     : status === "server-disabled"
       ? "The server administrator must configure the VAPID key pair first."
       : status === "blocked"
         ? "Notifications are blocked in this browser's site settings."
+        : status === "insecure"
+          ? "Device notifications require HTTPS. Localhost is supported during development."
         : "Receive safety and refill updates even when LPG Guardian is not open.";
 
   return (

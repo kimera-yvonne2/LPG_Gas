@@ -19,6 +19,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useAuth, type Role } from "@/lib/auth";
+import { NotificationPermissionBanner } from "@/components/notification-permission-banner";
 
 const navigation: { href: string; label: string; icon: typeof Gauge; roles: Role[] }[] = [
   { href: "/dashboard", label: "Dashboard", icon: Gauge, roles: ["admin", "household"] },
@@ -72,6 +73,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="text-sm font-extrabold text-[#073b82]">{user.role === "technician" ? "Refill Operations" : "Live Monitoring"}</div>
           <div className="ml-auto flex items-center gap-4"><Link href="/alerts" className="relative text-slate-600" aria-label={`${unreadQuery.data?.count || 0} unread notifications`}><Bell size={19} />{Boolean(unreadQuery.data?.count) && <span className="absolute -right-2 -top-2 grid min-h-4 min-w-4 place-items-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white">{Math.min(unreadQuery.data?.count || 0, 99)}</span>}</Link><div className="h-7 w-px bg-slate-200" /><div className="flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-full bg-[#e6eef8] text-[#073b82]"><UserRound size={16} /></span><div className="hidden text-right sm:block"><div className="text-[12px] font-bold">{user.username}</div><div className="text-[10px] text-slate-500">{roleLabel}</div></div></div></div>
         </header>
+        <NotificationPermissionBanner />
         <main className="min-h-[calc(100vh-110px)] p-6">{children}</main>
         <footer className="flex min-h-12 items-center justify-between border-t border-[#d8e1ec] bg-white px-6 text-[10px] text-slate-500"><span>© 2026 LPG Guardian.</span><div className="flex gap-5"><span>Terms of Service</span><span>Privacy Policy</span><span>Contact Support</span></div></footer>
       </div>
