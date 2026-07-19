@@ -1,7 +1,8 @@
 from rest_framework import serializers
 
 from accounts.models import User
-from alerts.services import queue_email
+from alerts.models import Notification
+from alerts.services import create_notification, queue_email
 from refills.models import RefillRequest
 
 
@@ -90,6 +91,18 @@ class RefillRequestSerializer(serializers.ModelSerializer):
         refill_request = RefillRequest.objects.create(**validated_data)
         technician = refill_request.assigned_technician
         if technician:
+            create_notification(
+                recipient=technician,
+                category=Notification.Category.REFILL,
+                severity=Notification.Severity.INFO,
+                title="New refill request",
+                message=(
+                    f"{refill_request.household.owner.username} sent refill request "
+                    f"#{refill_request.id}."
+                ),
+                target_url="/refills",
+                event_key=f"refill:{refill_request.id}:created",
+            )
             queue_email(
                 subject="LPG Guardian: New refill request",
                 body=(

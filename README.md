@@ -84,6 +84,19 @@ Charts are lazy-loaded to keep the initial route bundle small. Each chart has an
 
 No new backend endpoint, stored data, or migration is introduced. To roll back the UI, revert the frontend analytics page and telemetry chart component; existing telemetry APIs and authentication behavior remain unchanged.
 
+## Web Push notifications
+
+LPG Guardian uses standards-based Web Push with an application-owned VAPID key pair. Generate a pair once:
+
+```powershell
+Set-Location apps/backend
+python manage.py generate_vapid_keys
+```
+
+Store the three printed values as `WEB_PUSH_VAPID_PUBLIC_KEY`, `WEB_PUSH_VAPID_PRIVATE_KEY`, and `WEB_PUSH_VAPID_SUBJECT` in the backend and worker environment. Keep the private key secret and stable; changing it invalidates existing browser subscriptions. The public key is intentionally returned to authenticated browsers by the Web Push configuration endpoint.
+
+Production Web Push requires HTTPS. On iOS and iPadOS, users must add the web app to their Home Screen before enabling notifications. Users opt in from Account Settings.
+
 ## Quality commands
 
 ```bash

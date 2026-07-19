@@ -1,14 +1,22 @@
 from django.urls import include, path
+from rest_framework.routers import DefaultRouter
 
-from alerts.views import AlertViewSet
+from alerts.views import (
+    AlertViewSet,
+    NotificationViewSet,
+    PushSubscriptionViewSet,
+    WebPushConfigView,
+)
 from config.views import HealthView
 
-alert_list = AlertViewSet.as_view({"get": "list"})
-alert_detail = AlertViewSet.as_view({"get": "retrieve"})
+router = DefaultRouter()
+router.register("alerts", AlertViewSet, basename="alert")
+router.register("notifications", NotificationViewSet, basename="notification")
+router.register("push-subscriptions", PushSubscriptionViewSet, basename="push-subscription")
 
 urlpatterns = [
-    path("alerts/", alert_list, name="alert-list"),
-    path("alerts/<int:pk>/", alert_detail, name="alert-detail"),
+    path("", include(router.urls)),
+    path("web-push/config/", WebPushConfigView.as_view(), name="web-push-config"),
     path("health/", HealthView.as_view(), name="health"),
     path("", include("accounts.urls")),
     path("", include("devices.urls")),

@@ -16,6 +16,8 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 import { useAuth, type Role } from "@/lib/auth";
 
 const navigation: { href: string; label: string; icon: typeof Gauge; roles: Role[] }[] = [
@@ -25,7 +27,7 @@ const navigation: { href: string; label: string; icon: typeof Gauge; roles: Role
   { href: "/refills", label: "Refill Providers", icon: Truck, roles: ["household"] },
   { href: "/refills", label: "Refill Operations", icon: Truck, roles: ["admin"] },
   { href: "/refills", label: "Refill Requests", icon: Truck, roles: ["technician"] },
-  { href: "/alerts", label: "Alerts", icon: Bell, roles: ["household"] },
+  { href: "/alerts", label: "Notifications", icon: Bell, roles: ["admin", "technician", "household"] },
   { href: "/users", label: "User Management", icon: Users, roles: ["admin"] },
   { href: "/settings", label: "Settings", icon: Settings, roles: ["admin", "technician", "household"] },
 ];
@@ -34,6 +36,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, loading, logout } = useAuth();
   const [open, setOpen] = useState(false);
+  const unreadQuery = useQuery({
+    queryKey: ["notification-unread-count"],
+    enabled: Boolean(user),
+    refetchInterval: 15_000,
+    queryFn: async () => (await api.get<{ count: number }>("/notifications/unread-count/")).data,
+  });
   if (pathname === "/" || pathname.startsWith("/auth/")) {
   return <>{children}</>;
   }
@@ -62,7 +70,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <header className="sticky top-0 z-30 flex h-[62px] items-center gap-4 border-b border-[#d8e1ec] bg-white px-6">
           <button className="md:hidden" onClick={() => setOpen(true)} aria-label="Open navigation"><Menu /></button>
           <div className="text-sm font-extrabold text-[#073b82]">{user.role === "technician" ? "Refill Operations" : "Live Monitoring"}</div>
-          <div className="ml-auto flex items-center gap-4">{user.role === "household" && <Link href="/alerts" className="text-slate-600" aria-label="Notifications"><Bell size={19} /></Link>}<div className="h-7 w-px bg-slate-200" /><div className="flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-full bg-[#e6eef8] text-[#073b82]"><UserRound size={16} /></span><div className="hidden text-right sm:block"><div className="text-[12px] font-bold">{user.username}</div><div className="text-[10px] text-slate-500">{roleLabel}</div></div></div></div>
+          <div className="ml-auto flex items-center gap-4"><Link href="/alerts" className="relative text-slate-600" aria-label={`${unreadQuery.data?.count || 0} unread notifications`}><Bell size={19} />{Boolean(unreadQuery.data?.count) && <span className="absolute -right-2 -top-2 grid min-h-4 min-w-4 place-items-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white">{Math.min(unreadQuery.data?.count || 0, 99)}</span>}</Link><div className="h-7 w-px bg-slate-200" /><div className="flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-full bg-[#e6eef8] text-[#073b82]"><UserRound size={16} /></span><div className="hidden text-right sm:block"><div className="text-[12px] font-bold">{user.username}</div><div className="text-[10px] text-slate-500">{roleLabel}</div></div></div></div>
         </header>
         <main className="min-h-[calc(100vh-110px)] p-6">{children}</main>
         <footer className="flex min-h-12 items-center justify-between border-t border-[#d8e1ec] bg-white px-6 text-[10px] text-slate-500"><span>© 2026 LPG Guardian.</span><div className="flex gap-5"><span>Terms of Service</span><span>Privacy Policy</span><span>Contact Support</span></div></footer>

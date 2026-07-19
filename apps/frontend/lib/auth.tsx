@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { api } from "./api";
+import { detachWebPushFromCurrentUser, registerExistingPushSubscription } from "./web-push";
 
 export type Role = "admin" | "technician" | "household";
 export type User = { id: number; email: string; username: string; phone_number: string; role: Role; email_verified: boolean; is_active: boolean };
@@ -62,7 +63,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
     const load = async () => {
       if (!localStorage.getItem("lpg_access_token")) return setLoading(false);
-      try { setUser((await api.get<User>("/users/me/")).data); } catch { clear(); }
+      try {
+        setUser((await api.get<User>("/users/me/")).data);
+        void registerExistingPushSubscription().catch(() => undefined);
+      } catch { clear(); }
       finally { setLoading(false); }
     };
     load();
@@ -79,17 +83,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("lpg_access_token", data.access);
     localStorage.setItem("lpg_refresh_token", data.refresh);
     setUser(data.user);
+    void registerExistingPushSubscription().catch(() => undefined);
     return data.user;
   };
   const register = async (input: Parameters<AuthContextValue["register"]>[0]) => { await api.post("/auth/register/", input); };
   const logout = async () => {
     const refresh = localStorage.getItem("lpg_refresh_token");
-    try { if (refresh) await api.post("/auth/logout/", { refresh }); } finally { clear(); }
+    try {
+      await detachWebPushFromCurrentUser().catch(() => undefined);
+      if (refresh) await api.post("/auth/logout/", { refresh });
+    } finally { clear(); }
   };
   const updateProfile = async (input: { username: string; phone_number: string }) => {
     const { data } = await api.patch<User>("/users/me/", input); setUser(data); return data;
   };
   const deleteAccount = async () => {
+    await detachWebPushFromCurrentUser().catch(() => undefined);
     await api.delete("/users/me/");
     clear();
   };

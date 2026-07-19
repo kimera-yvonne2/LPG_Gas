@@ -3,8 +3,8 @@ from decimal import Decimal
 from django.db import transaction
 from django.utils import timezone
 
-from alerts.models import Alert
-from alerts.tasks import send_notification_email_task
+from alerts.models import Alert, Notification, NotificationDelivery, PushSubscription
+from alerts.tasks import send_notification_email_task, send_web_push_task
 
 LOW_GAS_THRESHOLD = Decimal("15.00")
 LOW_GAS_RESET_THRESHOLD = Decimal("20.00")
@@ -19,6 +19,49 @@ def queue_email(*, subject: str, body: str, recipients: list[str]) -> None:
     )
 
 
+def create_notification(
+    *,
+    recipient,
+    category: str,
+    severity: str,
+    title: str,
+    message: str,
+    target_url: str,
+    event_key: str,
+) -> Notification:
+    """Persist an inbox item and queue one delivery for each active browser."""
+
+    notification, created = Notification.objects.get_or_create(
+        recipient=recipient,
+        event_key=event_key,
+        defaults={
+            "category": category,
+            "severity": severity,
+            "title": title,
+            "message": message,
+            "target_url": target_url,
+        },
+    )
+    if not created:
+        return notification
+
+    subscription_ids = PushSubscription.objects.filter(user=recipient, is_active=True).values_list(
+        "id", flat=True
+    )
+    deliveries = NotificationDelivery.objects.bulk_create(
+        [
+            NotificationDelivery(notification=notification, subscription_id=subscription_id)
+            for subscription_id in subscription_ids
+        ]
+    )
+    for delivery in deliveries:
+        transaction.on_commit(
+            lambda delivery_id=delivery.id: send_web_push_task.delay(delivery_id),
+            robust=True,
+        )
+    return notification
+
+
 def _resolve(cylinder_id: int, kind: str) -> None:
     Alert.objects.filter(cylinder_id=cylinder_id, kind=kind, is_active=True).update(
         is_active=False, resolved_at=timezone.now()
@@ -26,7 +69,7 @@ def _resolve(cylinder_id: int, kind: str) -> None:
 
 
 def _create(reading, *, kind: str, severity: str, title: str, message: str) -> None:
-    _, created = Alert.objects.get_or_create(
+    alert, created = Alert.objects.get_or_create(
         cylinder=reading.cylinder,
         kind=kind,
         is_active=True,
@@ -39,10 +82,33 @@ def _create(reading, *, kind: str, severity: str, title: str, message: str) -> N
         },
     )
     if created:
+        owner = reading.cylinder.household.owner
+        create_notification(
+            recipient=owner,
+            category=Notification.Category.SAFETY,
+            severity=severity,
+            title=title,
+            message=message,
+            target_url="/alerts",
+            event_key=f"alert:{alert.id}:created",
+        )
+        if severity == Alert.Severity.CRITICAL:
+            from accounts.models import User
+
+            for admin in User.objects.filter(role=User.Role.ADMIN, is_active=True).iterator():
+                create_notification(
+                    recipient=admin,
+                    category=Notification.Category.SAFETY,
+                    severity=Notification.Severity.CRITICAL,
+                    title=title,
+                    message=message,
+                    target_url="/alerts",
+                    event_key=f"alert:{alert.id}:created",
+                )
         queue_email(
             subject=f"LPG Guardian: {title}",
             body=f"{message}\n\nRecorded at {reading.timestamp:%Y-%m-%d %H:%M:%S %Z}.",
-            recipients=[reading.cylinder.household.owner.email],
+            recipients=[owner.email],
         )
 
 

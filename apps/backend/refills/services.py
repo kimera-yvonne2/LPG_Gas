@@ -4,7 +4,8 @@ from django.db import transaction
 from rest_framework.exceptions import ValidationError
 
 from accounts.models import User
-from alerts.services import queue_email
+from alerts.models import Notification
+from alerts.services import create_notification, queue_email
 from refills.models import RefillRequest
 
 
@@ -41,6 +42,18 @@ def transition_refill_request(*, refill_request_id: int, status: str, actor: Use
         raise ValidationError(exc.message_dict) from exc
     refill_request.save(update_fields=("status", "updated_at"))
     owner = refill_request.household.owner
+    create_notification(
+        recipient=owner,
+        category=Notification.Category.REFILL,
+        severity=Notification.Severity.INFO,
+        title=f"Refill request {refill_request.get_status_display()}",
+        message=(
+            f"Your refill request #{refill_request.id} status changed to "
+            f"{refill_request.get_status_display()}."
+        ),
+        target_url="/refills",
+        event_key=f"refill:{refill_request.id}:status:{status}",
+    )
     queue_email(
         subject=f"LPG Guardian: Refill request {refill_request.get_status_display()}",
         body=(
@@ -52,6 +65,15 @@ def transition_refill_request(*, refill_request_id: int, status: str, actor: Use
     if status == RefillRequest.Status.CANCELLED and actor.role == User.Role.HOUSEHOLD:
         technician = refill_request.assigned_technician
         if technician:
+            create_notification(
+                recipient=technician,
+                category=Notification.Category.REFILL,
+                severity=Notification.Severity.WARNING,
+                title="Refill request cancelled",
+                message=f"{owner.username} cancelled refill request #{refill_request.id}.",
+                target_url="/refills",
+                event_key=f"refill:{refill_request.id}:cancelled-by-household",
+            )
             queue_email(
                 subject="LPG Guardian: Refill request cancelled",
                 body=f"{owner.username} cancelled refill request #{refill_request.id}.",
