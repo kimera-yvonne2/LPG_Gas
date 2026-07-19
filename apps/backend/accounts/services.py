@@ -11,6 +11,25 @@ from django.utils.http import urlsafe_base64_encode
 from accounts.models import User
 
 
+def queue_household_welcome_email(user: User) -> None:
+    if user.role != User.Role.HOUSEHOLD:
+        return
+    from alerts.services import queue_email
+
+    queue_email(
+        subject="Welcome to LPG Guardian",
+        body=(
+            f"Hi {user.username},\n\n"
+            "Welcome to LPG Guardian! Your household account is ready. "
+            "You can now connect your device, keep an eye on your gas level, "
+            "receive important safety alerts, and request a refill when you need one.\n\n"
+            "We're glad to have you with us.\n\n"
+            "The LPG Guardian team"
+        ),
+        recipients=[user.email],
+    )
+
+
 def ensure_household(user: User):
     if user.role != User.Role.HOUSEHOLD:
         return None
@@ -24,6 +43,7 @@ def ensure_household(user: User):
 def create_managed_user(*, password: str, **data) -> User:
     user = User.objects.create_user(password=password, **data)
     ensure_household(user)
+    queue_household_welcome_email(user)
     return user
 
 
@@ -54,6 +74,7 @@ def register_household(*, email: str, username: str, password: str, phone_number
         email_verified=True,
     )
     ensure_household(user)
+    queue_household_welcome_email(user)
     return user
 
 

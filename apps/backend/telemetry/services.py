@@ -29,6 +29,10 @@ TWO_DECIMAL_PLACES = Decimal("0.01")
 def create_reading(**data) -> Reading:
     reading = Reading.objects.create(**data)
 
+    from alerts.services import process_reading_alerts
+
+    process_reading_alerts(reading)
+
     cylinder = reading.cylinder
     next_status = None
     if reading.gas_percentage is not None:

@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.db.models import Q
+from django.utils import timezone
 from drf_spectacular.utils import (
     OpenApiExample,
     OpenApiParameter,
@@ -35,6 +36,7 @@ from accounts.services import (
     send_verification_email,
     verify_email,
 )
+from alerts.services import queue_email
 
 User = get_user_model()
 
@@ -74,7 +76,25 @@ class LoginView(TokenObtainPairView):
         ],
     )
     def post(self, request, *args, **kwargs):
-        return super().post(request, *args, **kwargs)
+        response = super().post(request, *args, **kwargs)
+        if response.status_code == status.HTTP_200_OK:
+            user_data = response.data.get("user", {})
+            if user_data.get("role") == User.Role.HOUSEHOLD:
+                forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
+                ip_address = forwarded.split(",", 1)[0].strip() or request.META.get(
+                    "REMOTE_ADDR", "unknown"
+                )
+                queue_email(
+                    subject="LPG Guardian: New login to your account",
+                    body=(
+                        "A successful password login was made to your LPG Guardian account.\n\n"
+                        f"Time: {timezone.now():%Y-%m-%d %H:%M:%S %Z}\n"
+                        f"IP address: {ip_address}\n\n"
+                        "If this was not you, reset your password immediately."
+                    ),
+                    recipients=[user_data.get("email", "")],
+                )
+        return response
 
 
 class RefreshView(TokenRefreshView):
