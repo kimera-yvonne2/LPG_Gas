@@ -1,5 +1,6 @@
 import logging
-from datetime import timedelta
+from dataclasses import dataclass
+from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
@@ -11,18 +12,73 @@ from telemetry.models import DepletionEstimate, Reading
 logger = logging.getLogger(__name__)
 
 MODEL_NAME = "weighted-average-depletion"
-MODEL_VERSION = "1.0.0"
+MODEL_VERSION = "1.1.0"
 
 MINIMUM_READING_COUNT = 5
 MINIMUM_DATA_SPAN = timedelta(hours=24)
 PREDICTION_WINDOW = timedelta(days=7)
 STALE_AFTER = timedelta(hours=24)
+FORECAST_BUCKET = timedelta(minutes=15)
 
 # A rise of at least 0.5 kg is treated as a possible refill.
 REFILL_INCREASE_THRESHOLD = Decimal("0.500")
 
 SECONDS_PER_DAY = Decimal("86400")
 TWO_DECIMAL_PLACES = Decimal("0.01")
+
+
+@dataclass(frozen=True)
+class SmoothedReading:
+    """One median weight from a completed telemetry bucket."""
+
+    timestamp: datetime
+    weight: Decimal
+
+
+def _completed_bucket_end(now):
+    """Return the start of the in-progress 15-minute bucket.
+
+    Measurements before this instant belong to completed buckets.  Keeping the
+    current bucket out of the model means a fast ESP32 stream cannot make a
+    forecast react to momentary scale jitter.
+    """
+
+    seconds = int(FORECAST_BUCKET.total_seconds())
+    return datetime.fromtimestamp(
+        int(now.timestamp() // seconds) * seconds,
+        tz=now.tzinfo,
+    )
+
+
+def _smoothed_readings(cylinder: Cylinder, *, window_start, completed_until) -> list[SmoothedReading]:
+    """Reduce raw readings to a median weight for each completed bucket."""
+
+    raw_readings = Reading.objects.filter(
+        cylinder=cylinder,
+        timestamp__gte=window_start,
+        timestamp__lt=completed_until,
+        weight__isnull=False,
+    ).order_by("timestamp")
+
+    buckets: dict[int, list[Reading]] = {}
+    bucket_seconds = int(FORECAST_BUCKET.total_seconds())
+    for reading in raw_readings.iterator(chunk_size=2000):
+        bucket = int(reading.timestamp.timestamp() // bucket_seconds)
+        buckets.setdefault(bucket, []).append(reading)
+
+    smoothed = []
+    for readings in buckets.values():
+        weights = sorted(reading.weight for reading in readings)
+        middle = len(weights) // 2
+        median = (
+            weights[middle]
+            if len(weights) % 2
+            else (weights[middle - 1] + weights[middle]) / Decimal("2")
+        )
+        # The final reading time makes intervals reflect the actual reporting
+        # cadence while the median protects the value from scale noise.
+        smoothed.append(SmoothedReading(timestamp=readings[-1].timestamp, weight=median))
+    return smoothed
 
 
 @transaction.atomic
@@ -46,11 +102,9 @@ def create_reading(**data) -> Reading:
     ):
         cylinder.status = next_status
         cylinder.save(update_fields=("status", "updated_at"))
-    from telemetry.tasks import generate_depletion_estimate_task
-
     if reading.weight is not None:
         transaction.on_commit(
-            lambda: generate_depletion_estimate_task.delay(cylinder.id),
+            lambda: refresh_depletion_estimate_if_due(cylinder.id),
             robust=True,
         )
     return reading
@@ -104,7 +158,7 @@ def _save_fallback_estimate(
     )
 
 
-def _readings_after_latest_refill(readings: list[Reading]) -> list[Reading]:
+def _readings_after_latest_refill(readings: list[SmoothedReading]) -> list[SmoothedReading]:
     """
     Use only readings recorded after the most recent likely refill.
 
@@ -124,7 +178,7 @@ def _readings_after_latest_refill(readings: list[Reading]) -> list[Reading]:
     return readings[start_index:]
 
 
-def _calculate_consumption_rates(readings: list[Reading]) -> list[Decimal]:
+def _calculate_consumption_rates(readings: list[SmoothedReading]) -> list[Decimal]:
     """
     Calculate consumption rates in kilograms per day.
 
@@ -235,14 +289,11 @@ def generate_depletion_estimate(cylinder: Cylinder) -> DepletionEstimate:
     now = timezone.now()
     window_start = now - PREDICTION_WINDOW
 
-    readings = list(
-        Reading.objects.filter(
-            cylinder=cylinder,
-            timestamp__gte=window_start,
-            weight__isnull=False,
-        )
-        .select_related("sensor", "cylinder")
-        .order_by("timestamp")
+    completed_until = _completed_bucket_end(now)
+    readings = _smoothed_readings(
+        cylinder,
+        window_start=window_start,
+        completed_until=completed_until,
     )
 
     if len(readings) < MINIMUM_READING_COUNT:
@@ -401,3 +452,25 @@ def generate_depletion_estimate(cylinder: Cylinder) -> DepletionEstimate:
             reason=f"Prediction calculation failed: {type(exc).__name__}.",
             readings=readings,
         )
+
+
+@transaction.atomic
+def refresh_depletion_estimate_if_due(cylinder_id: int) -> int | None:
+    """Refresh at most once per completed bucket, with no task broker needed."""
+
+    try:
+        cylinder = Cylinder.objects.select_for_update().get(pk=cylinder_id)
+    except Cylinder.DoesNotExist:
+        return None
+
+    if cylinder.status != Cylinder.Status.ACTIVE:
+        return None
+
+    completed_until = _completed_bucket_end(timezone.now())
+    if DepletionEstimate.objects.filter(
+        cylinder=cylinder,
+        generated_at__gte=completed_until,
+    ).exists():
+        return None
+
+    return generate_depletion_estimate(cylinder).id
