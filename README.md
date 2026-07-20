@@ -5,7 +5,7 @@ Production-oriented monorepo foundation for a smart LPG cylinder monitoring plat
 ## Stack
 
 - Frontend: Next.js App Router, React, TypeScript, Tailwind CSS, shadcn/ui conventions, TanStack Query, React Hook Form, Zod, Recharts, Axios.
-- Backend: Django, Django REST Framework, PostgreSQL, JWT, Celery, Redis, drf-spectacular, pytest.
+- Backend: Django, Django REST Framework, PostgreSQL, JWT, drf-spectacular, pytest.
 - Delivery: Docker Compose, multi-stage Dockerfiles, GitHub Actions, Dependabot, pre-commit.
 
 ## Repository layout
@@ -111,7 +111,12 @@ python manage.py spectacular --api-version v1 --validate --file schema.yml
 See [architecture](docs/architecture.md), [development guidelines](docs/development.md), [coding standards](docs/coding-standards.md), [API conventions](docs/api/README.md), [security](docs/security.md), and [Git workflow](docs/git-workflow.md).
 ## Depletion prediction
 
-The backend asynchronously generates LPG depletion estimates from recent telemetry readings.
+The backend keeps every raw ESP32 reading, but creates forecasts from a median
+weight for each completed 15-minute bucket. A forecast is refreshed at most
+once per cylinder per bucket in the Django process, so no Celery worker, Redis,
+or separate prediction server is required. The selected-cylinder endpoint is
+`GET /api/v1/depletion-estimates/latest/?cylinder=<id>`; it returns an honest
+stale or learning state when a current estimate cannot be shown.
 
 Each estimate includes:
 
