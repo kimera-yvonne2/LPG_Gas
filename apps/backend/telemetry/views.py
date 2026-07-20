@@ -9,6 +9,7 @@ from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
 from accounts.models import User
 from devices.authentication import DeviceAuthentication
 from devices.models import Cylinder
@@ -178,8 +179,7 @@ class DepletionEstimateViewSet(
 
         cylinder = Cylinder.objects.select_related("household").filter(pk=cylinder_id).first()
         if cylinder is None or (
-            request.user.role != User.Role.ADMIN
-            and cylinder.household.owner_id != request.user.id
+            request.user.role != User.Role.ADMIN and cylinder.household.owner_id != request.user.id
         ):
             raise NotFound("Cylinder not found.")
 

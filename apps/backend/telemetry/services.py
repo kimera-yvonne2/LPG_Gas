@@ -50,7 +50,12 @@ def _completed_bucket_end(now):
     )
 
 
-def _smoothed_readings(cylinder: Cylinder, *, window_start, completed_until) -> list[SmoothedReading]:
+def _smoothed_readings(
+    cylinder: Cylinder,
+    *,
+    window_start,
+    completed_until,
+) -> list[SmoothedReading]:
     """Reduce raw readings to a median weight for each completed bucket."""
 
     raw_readings = Reading.objects.filter(
