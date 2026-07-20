@@ -2,12 +2,12 @@
 
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Check, ChevronRight, Radio } from "lucide-react";
+import { Check, ChevronRight, Radio, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { ApiList, Cylinder, Reading, Sensor, rows } from "@/lib/domain";
+import { ApiList, Cylinder, DepletionEstimate, Reading, Sensor, rows } from "@/lib/domain";
 import { AdminDashboard } from "@/components/admin-dashboard";
 
 export default function DashboardPage() {
@@ -38,6 +38,17 @@ export default function DashboardPage() {
     },
     staleTime: 30_000,
     refetchInterval: 10_000,
+  });
+
+  const dashboardCylinders = dashboardQuery.data?.cylinders ?? [];
+  const predictionCylinderId = dashboardQuery.data?.readings[0]?.cylinder ?? [...dashboardCylinders]
+    .sort((a, b) => new Date(b.latest_reading_at ?? 0).getTime() - new Date(a.latest_reading_at ?? 0).getTime())[0]?.id;
+  const predictionQuery = useQuery({
+    queryKey: ["latest-depletion-estimate", predictionCylinderId],
+    queryFn: async () => (await api.get<{ cylinder: number; estimate: DepletionEstimate | null; status?: string; failure_reason?: string }>(`/depletion-estimates/latest/?cylinder=${predictionCylinderId}`)).data,
+    enabled: Boolean(predictionCylinderId),
+    staleTime: 5 * 60_000,
+    refetchInterval: 5 * 60_000,
   });
 
   if (loading || !user) {
@@ -119,6 +130,14 @@ export default function DashboardPage() {
         />
       </section>
 
+      {predictionCylinderId && (
+        <ForecastCard
+          estimate={predictionQuery.data?.estimate ?? null}
+          reason={predictionQuery.data?.failure_reason}
+          loading={predictionQuery.isLoading}
+        />
+      )}
+
       <section className="card mt-5 p-5" aria-labelledby="safety-status-title">
         <h2 id="safety-status-title" className="text-[17px] font-extrabold text-[#0b2442]">
           Current safety status
@@ -145,6 +164,18 @@ export default function DashboardPage() {
       </section>
     </div>
   );
+}
+
+function ForecastCard({ estimate, reason, loading }: { estimate: DepletionEstimate | null; reason?: string; loading: boolean }) {
+  const unavailableReason = reason ?? estimate?.failure_reason ?? "Learning your usage—needs 24 hours of readings.";
+  if (loading) return <section className="card mt-5 p-5 text-sm text-slate-500">Loading gas estimate…</section>;
+  if (!estimate || estimate.status !== "available") {
+    return <section className="card mt-5 p-5" aria-labelledby="forecast-title"><div className="flex items-center gap-2"><Sparkles size={18} className="text-[#073b82]" aria-hidden="true" /><h2 id="forecast-title" className="text-[17px] font-extrabold text-[#0b2442]">Gas forecast</h2></div><p className="mt-3 text-sm text-slate-600">{unavailableReason}</p><p className="mt-1 text-xs text-slate-500">Forecasts update from stable 15-minute readings when enough usage data is available.</p></section>;
+  }
+  const confidence = Number(estimate.confidence_score ?? 0);
+  const confidenceLabel = confidence >= 0.7 ? "High" : confidence >= 0.4 ? "Moderate" : "Low";
+  const date = (value: string | null) => value ? new Intl.DateTimeFormat(undefined, { weekday: "long", month: "short", day: "numeric" }).format(new Date(value)) : "Unavailable";
+  return <section className="card mt-5 p-5" aria-labelledby="forecast-title"><div className="flex items-center gap-2"><Sparkles size={18} className="text-[#073b82]" aria-hidden="true" /><h2 id="forecast-title" className="text-[17px] font-extrabold text-[#0b2442]">Gas forecast</h2></div><div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><div><p className="text-xs font-bold uppercase text-slate-500">Estimated remaining</p><p className="mt-1 text-2xl font-black text-[#073b82]">{Number(estimate.estimated_days_remaining).toFixed(1)} days</p></div><div><p className="text-xs font-bold uppercase text-slate-500">Expected empty date</p><p className="mt-1 text-sm font-bold text-slate-700">{date(estimate.estimated_depletion_at)}</p></div><div><p className="text-xs font-bold uppercase text-slate-500">Likely window</p><p className="mt-1 text-sm font-bold text-slate-700">{date(estimate.lower_bound_at)} – {date(estimate.upper_bound_at)}</p></div><div><p className="text-xs font-bold uppercase text-slate-500">Confidence</p><p className="mt-1 text-sm font-bold text-slate-700">{confidenceLabel} · {estimate.input_reading_count} measured periods</p></div></div><p className="mt-4 text-xs text-slate-500">Based on measured usage; this is a planning estimate, not a safety guarantee.</p></section>;
 }
 
 function MetricCard({

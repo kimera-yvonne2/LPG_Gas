@@ -1,6 +1,5 @@
 import json
 
-from celery import shared_task
 from django.conf import settings
 from django.utils import timezone
 from pywebpush import WebPushException, webpush
@@ -8,7 +7,6 @@ from pywebpush import WebPushException, webpush
 from alerts.models import NotificationDelivery
 
 
-@shared_task
 def send_web_push_task(delivery_id: int) -> bool:
     delivery = (
         NotificationDelivery.objects.select_related("notification", "subscription")
