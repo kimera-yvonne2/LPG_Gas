@@ -1,12 +1,17 @@
+from datetime import timedelta
+
+from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
+from accounts.models import User
 from devices.authentication import DeviceAuthentication
+from devices.models import Cylinder
 from telemetry.filters import ReadingFilter
 from telemetry.models import DepletionEstimate, Reading
 from telemetry.permissions import DepletionEstimatePermission, ReadingPermission
@@ -159,3 +164,69 @@ class DepletionEstimateViewSet(
 
     def get_queryset(self):
         return depletion_estimate_list_for(self.request.user)
+
+    @action(detail=False, methods=("get",), url_path="latest")
+    def latest(self, request):
+        """Return the selected cylinder's current forecast state, not its history."""
+        try:
+            cylinder_id = int(request.query_params["cylinder"])
+        except (KeyError, TypeError, ValueError):
+            return Response(
+                {"detail": "A valid cylinder query parameter is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        cylinder = Cylinder.objects.select_related("household").filter(pk=cylinder_id).first()
+        if cylinder is None or (
+            request.user.role != User.Role.ADMIN
+            and cylinder.household.owner_id != request.user.id
+        ):
+            raise NotFound("Cylinder not found.")
+
+        latest_reading = (
+            Reading.objects.select_related("cylinder")
+            .filter(cylinder_id=cylinder_id, weight__isnull=False)
+            .order_by("-timestamp")
+            .first()
+        )
+        if latest_reading is None:
+            return Response(
+                {
+                    "cylinder": cylinder_id,
+                    "estimate": None,
+                    "status": DepletionEstimate.Status.INSUFFICIENT_DATA,
+                    "failure_reason": "Learning your usage—needs readings from this cylinder.",
+                }
+            )
+
+        estimate = self.get_queryset().filter(cylinder_id=cylinder_id).first()
+        if estimate is None:
+            return Response(
+                {
+                    "cylinder": cylinder_id,
+                    "estimate": None,
+                    "status": DepletionEstimate.Status.INSUFFICIENT_DATA,
+                    "failure_reason": "Learning your usage—needs 24 hours of readings.",
+                }
+            )
+
+        # A stopped or retired sensor must never leave an old available
+        # forecast looking current. This is deliberately a response-time state:
+        # no scheduler or extra process is needed just to mark it stale.
+        if (
+            latest_reading.cylinder.status != latest_reading.cylinder.Status.ACTIVE
+            or timezone.now() - latest_reading.timestamp > timedelta(hours=24)
+        ):
+            estimate.status = DepletionEstimate.Status.STALE_DATA
+            estimate.estimated_depletion_at = None
+            estimate.lower_bound_at = None
+            estimate.upper_bound_at = None
+            estimate.estimated_days_remaining = None
+            estimate.confidence_score = None
+            estimate.failure_reason = (
+                "This cylinder is no longer actively monitored."
+                if latest_reading.cylinder.status != latest_reading.cylinder.Status.ACTIVE
+                else "Sensor has not reported recently."
+            )
+
+        return Response({"cylinder": cylinder_id, "estimate": self.get_serializer(estimate).data})

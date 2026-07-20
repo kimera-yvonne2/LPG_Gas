@@ -1,46 +1,11 @@
-import logging
+"""Compatibility import for the former Celery depletion task.
 
-from celery import shared_task
+Forecasting now runs in the Django process and is throttled by completed
+15-minute data buckets, so it needs neither a broker nor a worker.
+"""
 
-from devices.models import Cylinder
-from telemetry.services import generate_depletion_estimate
-
-logger = logging.getLogger(__name__)
+from telemetry.services import refresh_depletion_estimate_if_due
 
 
-@shared_task(
-    bind=True,
-    autoretry_for=(ConnectionError,),
-    retry_backoff=True,
-    retry_kwargs={"max_retries": 3},
-)
-def generate_depletion_estimate_task(self, cylinder_id: int) -> int | None:
-    """
-    Generate a depletion estimate asynchronously.
-
-    Returns the saved estimate ID. Missing cylinders are handled safely because
-    retrying cannot restore a cylinder that no longer exists.
-    """
-
-    try:
-        cylinder = Cylinder.objects.get(pk=cylinder_id)
-    except Cylinder.DoesNotExist:
-        logger.warning(
-            "Depletion estimate task skipped because cylinder does not exist",
-            extra={"cylinder_id": cylinder_id},
-        )
-        return None
-
-    estimate = generate_depletion_estimate(cylinder)
-
-    logger.info(
-        "Depletion estimate task completed",
-        extra={
-            "cylinder_id": cylinder_id,
-            "estimate_id": estimate.id,
-            "status": estimate.status,
-            "model_version": estimate.model_version,
-        },
-    )
-
-    return estimate.id
+def generate_depletion_estimate_task(cylinder_id: int) -> int | None:
+    return refresh_depletion_estimate_if_due(cylinder_id)

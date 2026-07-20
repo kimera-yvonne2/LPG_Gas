@@ -11,8 +11,7 @@ from accounts.models import User
 from devices.models import Cylinder, Household, Sensor
 from refills.models import RefillRequest
 from telemetry.models import DepletionEstimate, Reading
-from telemetry.services import generate_depletion_estimate
-from telemetry.tasks import generate_depletion_estimate_task
+from telemetry.services import generate_depletion_estimate, refresh_depletion_estimate_if_due
 
 pytestmark = pytest.mark.django_db
 
@@ -363,7 +362,7 @@ def test_generate_depletion_estimate_success(asset_graph):
 
     assert estimate.status == DepletionEstimate.Status.AVAILABLE
     assert estimate.model_name == "weighted-average-depletion"
-    assert estimate.model_version == "1.0.0"
+    assert estimate.model_version == "1.1.0"
     assert estimate.input_reading_count == 5
     assert estimate.estimated_days_remaining is not None
     assert estimate.estimated_days_remaining > 0
@@ -489,6 +488,44 @@ def test_household_can_view_own_depletion_estimate(api_client, asset_graph):
     assert "safety guarantee" in response.data["results"][0]["disclaimer"]
 
 
+def test_household_can_get_latest_estimate_for_selected_cylinder(api_client, asset_graph):
+    owner, cylinder, sensor = asset_graph
+    create_prediction_readings(sensor, cylinder)
+    estimate = generate_depletion_estimate(cylinder)
+    api_client.force_authenticate(owner)
+
+    response = api_client.get(
+        reverse("v1:telemetry:depletion-estimate-latest"), {"cylinder": cylinder.id}
+    )
+
+    assert response.status_code == 200
+    assert response.data["cylinder"] == cylinder.id
+    assert response.data["estimate"]["id"] == estimate.id
+    assert response.data["estimate"]["status"] == DepletionEstimate.Status.AVAILABLE
+
+
+def test_latest_estimate_is_presented_as_stale_when_sensor_stops(api_client, asset_graph):
+    owner, cylinder, sensor = asset_graph
+    create_prediction_readings(sensor, cylinder)
+    generate_depletion_estimate(cylinder)
+    Reading.objects.filter(cylinder=cylinder).delete()
+    Reading.objects.create(
+        sensor=sensor,
+        cylinder=cylinder,
+        timestamp=timezone.now() - timedelta(days=2),
+        weight=Decimal("7.000"),
+    )
+    api_client.force_authenticate(owner)
+
+    response = api_client.get(
+        reverse("v1:telemetry:depletion-estimate-latest"), {"cylinder": cylinder.id}
+    )
+
+    assert response.status_code == 200
+    assert response.data["estimate"]["status"] == DepletionEstimate.Status.STALE_DATA
+    assert response.data["estimate"]["estimated_days_remaining"] is None
+
+
 def test_household_cannot_view_another_households_depletion_estimate(
     api_client,
     asset_graph,
@@ -559,21 +596,21 @@ def test_technician_cannot_access_depletion_estimates(api_client, asset_graph):
     assert response.status_code == 403
 
 
-def test_depletion_task_creates_estimate(asset_graph):
+def test_bucketed_forecast_refresh_creates_estimate(asset_graph):
     _, cylinder, sensor = asset_graph
     create_prediction_readings(sensor, cylinder)
 
-    estimate_id = generate_depletion_estimate_task.run(cylinder.id)
+    estimate_id = refresh_depletion_estimate_if_due(cylinder.id)
 
     estimate = DepletionEstimate.objects.get(pk=estimate_id)
 
     assert estimate.cylinder == cylinder
     assert estimate.status == DepletionEstimate.Status.AVAILABLE
-    assert estimate.model_version == "1.0.0"
+    assert estimate.model_version == "1.1.0"
 
 
-def test_depletion_task_handles_missing_cylinder():
-    estimate_id = generate_depletion_estimate_task.run(999999)
+def test_bucketed_forecast_refresh_handles_missing_cylinder():
+    estimate_id = refresh_depletion_estimate_if_due(999999)
 
     assert estimate_id is None
     assert DepletionEstimate.objects.count() == 0
@@ -632,5 +669,5 @@ def test_generate_depletion_estimate_handles_calculation_failure(
     assert estimate.lower_bound_at is None
     assert estimate.upper_bound_at is None
     assert estimate.model_name == "weighted-average-depletion"
-    assert estimate.model_version == "1.0.0"
+    assert estimate.model_version == "1.1.0"
     assert "InvalidOperation" in estimate.failure_reason
