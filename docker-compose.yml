@@ -17,19 +17,6 @@ services:
       timeout: 5s
       retries: 10
 
-  redis:
-    image: redis:7.4-alpine
-    command: redis-server --appendonly yes
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
   backend:
     build:
       context: ./apps/backend
@@ -38,31 +25,12 @@ services:
     env_file: ./apps/backend/.env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-lpg_guardian}:${POSTGRES_PASSWORD:-local-development-only}@postgres:5432/${POSTGRES_DB:-lpg_guardian}
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/1
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
       - ./apps/backend:/app
     depends_on:
       postgres: { condition: service_healthy }
-      redis: { condition: service_healthy }
-
-  worker:
-    build:
-      context: ./apps/backend
-      target: development
-    command: ./scripts/entrypoint.sh celery -A config worker --loglevel=info
-    env_file: ./apps/backend/.env
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-lpg_guardian}:${POSTGRES_PASSWORD:-local-development-only}@postgres:5432/${POSTGRES_DB:-lpg_guardian}
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/1
-    volumes:
-      - ./apps/backend:/app
-    depends_on:
-      postgres: { condition: service_healthy }
-      redis: { condition: service_healthy }
 
   frontend:
     build:
@@ -84,5 +52,4 @@ services:
 
 volumes:
   postgres_data:
-  redis_data:
   frontend_node_modules:

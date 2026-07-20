@@ -49,7 +49,7 @@ def create_notification(
     )
     for delivery in deliveries:
         transaction.on_commit(
-            lambda delivery_id=delivery.id: send_web_push_task.delay(delivery_id),
+            lambda delivery_id=delivery.id: send_web_push_task(delivery_id),
             robust=True,
         )
     return notification
