@@ -52,7 +52,7 @@ export function NotificationPermissionBanner() {
 
   if (status === "blocked") {
     return (
-      <section className="mx-6 mt-5 flex items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-amber-950">
+      <section className="mx-6 mt-5 flex items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-white">
         <Bell size={20} className="shrink-0" aria-hidden="true" />
         <div className="min-w-0 flex-1">
           <p className="text-xs font-extrabold">Device notifications are blocked</p>
