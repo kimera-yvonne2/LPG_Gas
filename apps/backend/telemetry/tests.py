@@ -362,7 +362,7 @@ def test_generate_depletion_estimate_success(asset_graph):
 
     assert estimate.status == DepletionEstimate.Status.AVAILABLE
     assert estimate.model_name == "weighted-average-depletion"
-    assert estimate.model_version == "1.1.0"
+    assert estimate.model_version == "1.2.0"
     assert estimate.input_reading_count == 5
     assert estimate.estimated_days_remaining is not None
     assert estimate.estimated_days_remaining > 0
@@ -375,7 +375,7 @@ def test_generate_depletion_estimate_success(asset_graph):
     assert Decimal("0") <= estimate.confidence_score <= Decimal("1")
 
 
-def test_generate_depletion_estimate_returns_insufficient_data(asset_graph):
+def test_generate_depletion_estimate_returns_immediate_cooking_baseline(asset_graph):
     _, cylinder, sensor = asset_graph
 
     Reading.objects.create(
@@ -387,13 +387,14 @@ def test_generate_depletion_estimate_returns_insufficient_data(asset_graph):
 
     estimate = generate_depletion_estimate(cylinder)
 
-    assert estimate.status == DepletionEstimate.Status.INSUFFICIENT_DATA
-    assert estimate.estimated_days_remaining is None
-    assert estimate.estimated_depletion_at is None
-    assert estimate.lower_bound_at is None
-    assert estimate.upper_bound_at is None
+    assert estimate.status == DepletionEstimate.Status.AVAILABLE
+    assert estimate.model_name == "household-cooking-baseline"
+    assert estimate.estimated_days_remaining == Decimal("30.00")
+    assert estimate.estimated_depletion_at is not None
+    assert estimate.lower_bound_at is not None
+    assert estimate.upper_bound_at is not None
     assert estimate.input_reading_count == 1
-    assert "At least 5 recent readings are required" in estimate.failure_reason
+    assert "personalise after 5 hours" in estimate.failure_reason
 
 
 def test_generate_depletion_estimate_returns_stale_data(asset_graph):
@@ -606,7 +607,7 @@ def test_bucketed_forecast_refresh_creates_estimate(asset_graph):
 
     assert estimate.cylinder == cylinder
     assert estimate.status == DepletionEstimate.Status.AVAILABLE
-    assert estimate.model_version == "1.1.0"
+    assert estimate.model_version == "1.2.0"
 
 
 def test_bucketed_forecast_refresh_handles_missing_cylinder():
@@ -616,7 +617,7 @@ def test_bucketed_forecast_refresh_handles_missing_cylinder():
     assert DepletionEstimate.objects.count() == 0
 
 
-def test_generate_depletion_estimate_handles_zero_consumption(asset_graph):
+def test_generate_depletion_estimate_uses_baseline_when_no_consumption_is_measurable(asset_graph):
     _, cylinder, sensor = asset_graph
     now = timezone.now()
 
@@ -638,12 +639,13 @@ def test_generate_depletion_estimate_handles_zero_consumption(asset_graph):
 
     estimate = generate_depletion_estimate(cylinder)
 
-    assert estimate.status == DepletionEstimate.Status.INSUFFICIENT_DATA
-    assert estimate.estimated_days_remaining is None
-    assert estimate.estimated_depletion_at is None
-    assert estimate.lower_bound_at is None
-    assert estimate.upper_bound_at is None
-    assert "reliable gas-consumption rate" in estimate.failure_reason
+    assert estimate.status == DepletionEstimate.Status.AVAILABLE
+    assert estimate.model_name == "household-cooking-baseline"
+    assert estimate.estimated_days_remaining == Decimal("30.00")
+    assert estimate.estimated_depletion_at is not None
+    assert estimate.lower_bound_at is not None
+    assert estimate.upper_bound_at is not None
+    assert "personalise after 5 hours" in estimate.failure_reason
 
 
 def test_generate_depletion_estimate_handles_calculation_failure(
@@ -669,5 +671,5 @@ def test_generate_depletion_estimate_handles_calculation_failure(
     assert estimate.lower_bound_at is None
     assert estimate.upper_bound_at is None
     assert estimate.model_name == "weighted-average-depletion"
-    assert estimate.model_version == "1.1.0"
+    assert estimate.model_version == "1.2.0"
     assert "InvalidOperation" in estimate.failure_reason
