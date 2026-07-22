@@ -485,7 +485,7 @@ void readSensors() {
   bool wValid = weightValid;
   float weight = currentGrossWeight;
 
-  if (!scale.wait_ready_timeout(80)) {
+  if (!scale.wait_ready_timeout(200)) {
     hxOk = false;
     wValid = false;
     publishSensorState(wValid, weight, rawGas, gasReady, leak, hxOk, tared);
@@ -507,7 +507,7 @@ void readSensors() {
     return;
   }
 
-  float measuredWeight = scale.get_units(1);
+  float measuredWeight = scale.get_units(5);
   if (!isfinite(measuredWeight) || measuredWeight < -0.15f || measuredWeight > 20.0f) {
     wValid = false;
     publishSensorState(wValid, weight, rawGas, gasReady, leak, hxOk, tared);
