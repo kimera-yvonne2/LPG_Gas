@@ -3,7 +3,6 @@
 import {
   ArrowRight,
   BarChart3,
-  BellRing,
   Check,
   ChevronRight,
   Clock3,
@@ -74,54 +73,59 @@ function Brand() {
 }
 
 function ProductPreview() {
-  const bars = [44, 63, 47, 78, 58, 86, 68, 92, 74, 60, 72, 48];
-
   return (
-    <div className="relative mx-auto w-full max-w-[520px] lg:mr-0">
+    <div className="relative mx-auto w-full max-w-[560px] lg:mr-0">
       <div className="absolute -inset-16 -z-10 rounded-full bg-orange-500/10 blur-3xl" />
       <div className="absolute -right-8 top-14 -z-10 size-64 rounded-full bg-emerald-400/10 blur-3xl" />
       <div className="overflow-hidden rounded-[28px] border border-white/10 bg-[#101b31]/90 shadow-2xl shadow-black/40 backdrop-blur-xl">
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
           <div className="flex items-center gap-2.5">
             <span className="grid size-8 place-items-center rounded-lg bg-orange-500 text-white"><Gauge size={16} /></span>
-            <div><p className="text-xs font-bold text-white">Kitchen cylinder</p><p className="text-[10px] text-slate-500">Device LPG-0241</p></div>
+            <div><p className="text-xs font-bold text-white">Household dashboard</p><p className="text-[10px] text-slate-500">Live LPG system status</p></div>
           </div>
           <span className="flex items-center gap-1.5 rounded-full bg-emerald-400/10 px-2.5 py-1 text-[10px] font-bold text-emerald-300 ring-1 ring-emerald-400/20">
             <span className="size-1.5 animate-pulse rounded-full bg-emerald-400" /> Live
           </span>
         </div>
 
-        <div className="grid gap-4 p-5 sm:grid-cols-[1.05fr_.95fr]">
-          <div className="rounded-2xl border border-white/8 bg-white/[.025] p-5">
-            <div className="relative mx-auto grid aspect-square max-w-[210px] place-items-center rounded-full bg-[conic-gradient(#34d399_0_68%,rgba(255,255,255,.06)_68%_100%)] p-[10px] shadow-[0_0_45px_rgba(52,211,153,.08)]">
-              <div className="grid size-full place-items-center rounded-full bg-[#111d33] text-center">
-                <div><p className="text-4xl font-black tracking-[-0.05em] text-white">68<span className="text-xl text-emerald-300">%</span></p><p className="mt-1 text-[10px] font-bold uppercase tracking-[.16em] text-slate-500">Gas remaining</p></div>
-              </div>
+        <div className="p-5">
+          <div className="mb-4">
+            <p className="text-sm font-extrabold text-white">Welcome back, Amina!</p>
+            <p className="mt-1 text-[9px] text-slate-500">Live LPG system status from the monitoring backend.</p>
+          </div>
+          <div className="grid grid-cols-3 gap-2.5">
+            <div className="rounded-xl border border-white/8 bg-white/[.025] p-3.5">
+              <p className="text-[8px] font-extrabold uppercase tracking-wide text-slate-500">Latest gas level</p>
+              <div className="mt-5 text-center"><p className="text-2xl font-black text-orange-300">68.0%</p><p className="mt-1 text-[8px] text-slate-500">Latest cylinder reading</p></div>
             </div>
-            <div className="mt-5 grid grid-cols-2 gap-2">
-              <div className="rounded-xl bg-white/[.04] p-3"><p className="text-sm font-extrabold text-white">18 days</p><p className="text-[9px] text-slate-500">Estimated left</p></div>
-              <div className="rounded-xl bg-white/[.04] p-3"><p className="text-sm font-extrabold text-white">8.2 bar</p><p className="text-[9px] text-slate-500">Pressure</p></div>
+            <div className="rounded-xl border border-white/8 bg-white/[.025] p-3.5">
+              <p className="text-[8px] font-extrabold uppercase tracking-wide text-slate-500">Cylinders</p>
+              <div className="mt-5 flex items-center gap-2 text-orange-300"><Radio size={14} /><p className="text-2xl font-black">1</p></div>
+              <p className="mt-4 border-t border-white/8 pt-2 text-[8px] text-slate-500">1 active</p>
+            </div>
+            <div className="rounded-xl border border-white/8 bg-white/[.025] p-3.5">
+              <p className="text-[8px] font-extrabold uppercase tracking-wide text-slate-500">Sensors online</p>
+              <div className="mt-5 flex items-center gap-2 text-orange-300"><Radio size={14} /><p className="text-2xl font-black">1</p></div>
+              <p className="mt-4 border-t border-white/8 pt-2 text-[8px] text-slate-500">1 registered</p>
             </div>
           </div>
-
-          <div className="flex flex-col gap-4">
-            <div className="rounded-2xl border border-white/8 bg-white/[.025] p-4">
-              <div className="mb-4 flex items-center justify-between"><p className="text-[11px] font-bold text-white">Weekly usage</p><span className="text-[9px] font-bold text-emerald-300">-8.4%</span></div>
-              <div className="flex h-24 items-end gap-1.5">
-                {bars.map((height, index) => <span key={index} className="flex-1 rounded-t bg-gradient-to-t from-orange-600/50 to-orange-400" style={{ height: `${height}%` }} />)}
+          <div className="mt-3 rounded-xl border border-white/8 bg-white/[.025] p-3.5">
+            <div className="flex items-center gap-2"><Sparkles size={13} className="text-orange-300" /><p className="text-[10px] font-extrabold text-white">Gas forecast</p></div>
+            <div className="mt-3 grid grid-cols-4 gap-2">
+              <div><p className="text-[7px] font-bold uppercase text-slate-500">Estimated remaining</p><p className="mt-1 text-xs font-black text-orange-300">18.0 days</p></div>
+              <div><p className="text-[7px] font-bold uppercase text-slate-500">Expected empty date</p><p className="mt-1 text-[8px] font-bold text-slate-300">Friday, Aug 9</p></div>
+              <div><p className="text-[7px] font-bold uppercase text-slate-500">Likely window</p><p className="mt-1 text-[8px] font-bold text-slate-300">Aug 7 – Aug 11</p></div>
+              <div><p className="text-[7px] font-bold uppercase text-slate-500">Confidence</p><p className="mt-1 text-[8px] font-bold text-slate-300">High · 96 periods</p></div>
+            </div>
+          </div>
+          <div className="mt-3 rounded-xl border border-white/8 bg-white/[.025] p-3.5">
+            <p className="text-[10px] font-extrabold text-white">Current safety status</p>
+            <div className="mt-2.5 flex items-center gap-2.5 rounded-lg bg-emerald-400/[.08] p-2.5 text-emerald-300">
+              <span className="grid size-6 shrink-0 place-items-center rounded-full border-2 border-current"><Check size={12} strokeWidth={3} /></span>
+              <div><p className="text-[9px] font-extrabold">No critical readings</p><p className="mt-0.5 text-[8px] text-emerald-200/60">Based on the latest telemetry received.</p></div>
               </div>
-              <div className="mt-2 flex justify-between text-[8px] text-slate-600"><span>Mon</span><span>Today</span></div>
-            </div>
-            <div className="rounded-2xl border border-emerald-300/15 bg-emerald-400/[.06] p-4">
-              <div className="flex gap-3"><span className="grid size-8 shrink-0 place-items-center rounded-lg bg-emerald-400/15 text-emerald-300"><Check size={16} /></span><div><p className="text-[11px] font-bold text-white">Everything looks safe</p><p className="mt-1 text-[9px] leading-4 text-slate-400">No leaks or unusual activity detected.</p></div></div>
-            </div>
           </div>
         </div>
-      </div>
-
-      <div className="absolute -bottom-6 -left-3 flex items-center gap-3 rounded-2xl border border-white/10 bg-[#17243b]/95 p-3.5 pr-5 shadow-2xl backdrop-blur-xl sm:-left-10">
-        <span className="grid size-9 place-items-center rounded-xl bg-orange-400/10 text-orange-300"><BellRing size={17} /></span>
-        <div><p className="text-[11px] font-extrabold text-white">Refill forecast updated</p><p className="mt-0.5 text-[9px] text-slate-400">You have about 18 days remaining</p></div>
       </div>
     </div>
   );
