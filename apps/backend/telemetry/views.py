@@ -206,7 +206,8 @@ class DepletionEstimateViewSet(
                     "cylinder": cylinder_id,
                     "estimate": None,
                     "status": DepletionEstimate.Status.INSUFFICIENT_DATA,
-                    "failure_reason": "Learning your usage—needs 24 hours of readings.",
+                    "failure_reason": "Learning your usage—your initial estimate "
+                    "will appear with the first reading.",
                 }
             )
 
