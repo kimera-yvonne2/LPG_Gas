@@ -12,10 +12,13 @@ from telemetry.models import DepletionEstimate, Reading
 logger = logging.getLogger(__name__)
 
 MODEL_NAME = "weighted-average-depletion"
-MODEL_VERSION = "1.1.0"
+MODEL_VERSION = "1.2.0"
+BASELINE_MODEL_NAME = "household-cooking-baseline"
 
 MINIMUM_READING_COUNT = 5
-MINIMUM_DATA_SPAN = timedelta(hours=24)
+# Five hours gives a useful first personalised forecast without pretending that
+# it has the certainty of a multi-day usage history.
+MINIMUM_DATA_SPAN = timedelta(hours=5)
 PREDICTION_WINDOW = timedelta(days=7)
 STALE_AFTER = timedelta(hours=24)
 FORECAST_BUCKET = timedelta(minutes=15)
@@ -25,6 +28,9 @@ REFILL_INCREASE_THRESHOLD = Decimal("0.500")
 
 SECONDS_PER_DAY = Decimal("86400")
 TWO_DECIMAL_PLACES = Decimal("0.01")
+# Kenyan household research found a 6 kg cylinder used for daily LPG cooking
+# lasting about one and a half months on average. This is roughly 0.133 kg/day.
+BASELINE_DAILY_USE_KG = Decimal("0.1333333333")
 
 
 @dataclass(frozen=True)
@@ -160,6 +166,41 @@ def _save_fallback_estimate(
         input_started_at=readings[0].timestamp if readings else None,
         input_ended_at=readings[-1].timestamp if readings else None,
         failure_reason=reason,
+    )
+
+
+def _save_baseline_estimate(
+    *,
+    cylinder: Cylinder,
+    latest_reading: Reading,
+    reading_count: int,
+) -> DepletionEstimate:
+    """Save an immediate, low-confidence estimate from average cooking use."""
+
+    remaining_gas = max(latest_reading.weight - cylinder.empty_weight, Decimal("0"))
+    estimated_days = remaining_gas / BASELINE_DAILY_USE_KG
+    # Household cooking varies substantially, so use a deliberately broad
+    # planning window rather than false precision.
+    earliest_days = remaining_gas / (BASELINE_DAILY_USE_KG * Decimal("1.5"))
+    latest_days = remaining_gas / (BASELINE_DAILY_USE_KG * Decimal("0.75"))
+
+    return DepletionEstimate.objects.create(
+        cylinder=cylinder,
+        status=DepletionEstimate.Status.AVAILABLE,
+        estimated_depletion_at=latest_reading.timestamp + timedelta(days=float(estimated_days)),
+        lower_bound_at=latest_reading.timestamp + timedelta(days=float(earliest_days)),
+        upper_bound_at=latest_reading.timestamp + timedelta(days=float(latest_days)),
+        estimated_days_remaining=estimated_days.quantize(TWO_DECIMAL_PLACES),
+        confidence_score=Decimal("0.10"),
+        model_name=BASELINE_MODEL_NAME,
+        model_version=MODEL_VERSION,
+        input_reading_count=reading_count,
+        input_started_at=latest_reading.timestamp,
+        input_ended_at=latest_reading.timestamp,
+        failure_reason=(
+            "Initial estimate based on average household cooking use; "
+            "it will personalise after 5 hours of readings."
+        ),
     )
 
 
@@ -300,6 +341,13 @@ def generate_depletion_estimate(cylinder: Cylinder) -> DepletionEstimate:
         window_start=window_start,
         completed_until=completed_until,
     )
+    # A first reading is enough for a provisional estimate. Unlike the
+    # personalised model, it must not wait for the current 15-minute bucket.
+    latest_raw_reading = (
+        Reading.objects.filter(cylinder=cylinder, weight__isnull=False)
+        .order_by("-timestamp")
+        .first()
+    )
 
     if len(readings) < MINIMUM_READING_COUNT:
         logger.info(
@@ -311,6 +359,12 @@ def generate_depletion_estimate(cylinder: Cylinder) -> DepletionEstimate:
             },
         )
 
+        if latest_raw_reading is not None:
+            return _save_baseline_estimate(
+                cylinder=cylinder,
+                latest_reading=latest_raw_reading,
+                reading_count=max(len(readings), 1),
+            )
         return _save_fallback_estimate(
             cylinder=cylinder,
             status=DepletionEstimate.Status.INSUFFICIENT_DATA,
@@ -321,6 +375,12 @@ def generate_depletion_estimate(cylinder: Cylinder) -> DepletionEstimate:
     readings = _readings_after_latest_refill(readings)
 
     if len(readings) < MINIMUM_READING_COUNT:
+        if latest_raw_reading is not None:
+            return _save_baseline_estimate(
+                cylinder=cylinder,
+                latest_reading=latest_raw_reading,
+                reading_count=max(len(readings), 1),
+            )
         return _save_fallback_estimate(
             cylinder=cylinder,
             status=DepletionEstimate.Status.INSUFFICIENT_DATA,
@@ -350,21 +410,19 @@ def generate_depletion_estimate(cylinder: Cylinder) -> DepletionEstimate:
     data_span = latest_reading.timestamp - readings[0].timestamp
 
     if data_span < MINIMUM_DATA_SPAN:
-        return _save_fallback_estimate(
+        return _save_baseline_estimate(
             cylinder=cylinder,
-            status=DepletionEstimate.Status.INSUFFICIENT_DATA,
-            reason="At least 24 hours of readings are required.",
-            readings=readings,
+            latest_reading=latest_raw_reading or latest_reading,
+            reading_count=len(readings),
         )
 
     rates = _calculate_consumption_rates(readings)
 
     if len(rates) < 2:
-        return _save_fallback_estimate(
+        return _save_baseline_estimate(
             cylinder=cylinder,
-            status=DepletionEstimate.Status.INSUFFICIENT_DATA,
-            reason="A reliable gas-consumption rate could not be determined.",
-            readings=readings,
+            latest_reading=latest_raw_reading or latest_reading,
+            reading_count=len(readings),
         )
 
     try:
@@ -375,11 +433,10 @@ def generate_depletion_estimate(cylinder: Cylinder) -> DepletionEstimate:
         )
 
         if average_daily_use <= 0:
-            return _save_fallback_estimate(
+            return _save_baseline_estimate(
                 cylinder=cylinder,
-                status=DepletionEstimate.Status.INSUFFICIENT_DATA,
-                reason="No measurable gas consumption was detected.",
-                readings=readings,
+                latest_reading=latest_raw_reading or latest_reading,
+                reading_count=len(readings),
             )
 
         remaining_gas = max(
