@@ -1,18 +1,8 @@
 import type { Role } from "./auth";
 
-export function postLoginPath(next: string | null, role?: Role): string {
-  // Keep intended in-app destinations, but never send a signed-in user back to
-  // the public landing/auth pages (or allow a protocol-relative redirect).
-  if (
-    next &&
-    next.startsWith("/") &&
-    !next.startsWith("//") &&
-    next !== "/" &&
-    !next.startsWith("/auth/") &&
-    !(role === "technician" && next === "/dashboard")
-  ) {
-    return next;
-  }
-
+export function postLoginPath(_next: string | null, role?: Role): string {
+  // Each sign-in starts at the user's role-specific landing page. In
+  // particular, do not reuse the protected route from a previous user's
+  // session when they sign in from the shared browser.
   return role === "technician" ? "/refills" : "/dashboard";
 }
