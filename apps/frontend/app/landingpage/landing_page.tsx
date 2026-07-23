@@ -169,12 +169,6 @@ export default function LPGGuardianApp() {
           <div className="relative z-10 pt-4 lg:pt-0"><ProductPreview /></div>
         </section>
 
-        <div className="relative border-y border-white/[.07] bg-white/[.018]">
-          <div className="mx-auto grid max-w-7xl grid-cols-2 divide-x divide-white/[.07] px-5 sm:px-8 md:grid-cols-4">
-            {[["14,200+", "Cylinders protected"], ["< 90 sec", "Average alert time"], ["99.4%", "Sensor uptime"], ["24 / 7", "Continuous monitoring"]].map(([value, label]) => <div key={label} className="px-4 py-7 text-center sm:py-9"><p className="text-xl font-black tracking-tight text-white sm:text-2xl">{value}</p><p className="mt-1 text-[10px] font-semibold uppercase tracking-[.12em] text-slate-600">{label}</p></div>)}
-          </div>
-        </div>
-
         <section id="how-it-works" className="relative mx-auto max-w-7xl scroll-mt-24 px-5 py-28 sm:px-8 sm:py-36">
           <div className="mb-14 max-w-2xl"><p className="mb-4 text-[11px] font-black uppercase tracking-[.2em] text-orange-400">Simple from day one</p><h2 className="text-3xl font-black tracking-[-.045em] text-white sm:text-5xl">From cylinder to confidence in three small steps.</h2></div>
           <div className="grid gap-4 md:grid-cols-3">
