@@ -2,11 +2,11 @@
 
 import {
   BarChart3, Bell, Gauge, LogOut, Menu, Settings, ShieldCheck, Truck,
-  UserRound, Users, X, ChevronRight, PanelLeftClose, PanelLeftOpen,
+  UserRound, Users, X, ChevronRight, PanelLeftClose, PanelLeftOpen, Moon, Sun,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useAuth, type Role } from "@/lib/auth";
@@ -31,6 +31,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, loading, logout } = useAuth();
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [lightMode, setLightMode] = useState(false);
+  useEffect(() => {
+    setLightMode(window.localStorage.getItem("lpg-theme") === "light");
+  }, []);
+  const toggleTheme = () => {
+    setLightMode(current => {
+      const next = !current;
+      window.localStorage.setItem("lpg-theme", next ? "light" : "dark");
+      return next;
+    });
+  };
   const unreadQuery = useQuery({
     queryKey: ["notification-unread-count"],
     enabled: Boolean(user),
@@ -50,9 +61,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const roleLabel = roleNames[user.role];
 
   return (
-    <div className="app-theme min-h-screen bg-[#08111f] text-slate-100">
+    <div className={`app-theme min-h-screen ${lightMode ? "app-theme-light" : ""}`}>
       {open && <button aria-label="Close navigation overlay" onClick={() => setOpen(false)} className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden" />}
-      <aside className={`fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col border-r border-white/[.07] bg-[#0a1424]/95 text-white backdrop-blur-xl transition-[transform,width] duration-300 lg:translate-x-0 ${collapsed ? "lg:w-20" : "lg:w-[260px]"} ${open ? "translate-x-0" : "-translate-x-full"}`}>
+      <aside className={`app-sidebar fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col border-r border-white/[.07] bg-[#0a1424]/95 text-white backdrop-blur-xl transition-[transform,width] duration-300 lg:translate-x-0 ${collapsed ? "lg:w-20" : "lg:w-[260px]"} ${open ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex h-20 items-center border-b border-white/[.07] px-5">
           <Link href="/dashboard" className={`flex items-center gap-3 ${collapsed ? "lg:gap-0" : ""}`}>
             <span className="grid size-10 place-items-center rounded-xl bg-gradient-to-br from-orange-400 to-orange-600 shadow-lg shadow-orange-600/20"><Gauge size={20} /></span>
@@ -76,14 +87,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
       <div className={`app-main ml-0 min-h-screen transition-[margin] duration-300 ${collapsed ? "lg:ml-20" : "lg:ml-[260px]"}`}>
-        <header className="sticky top-0 z-30 flex h-[62px] items-center gap-4 border-b border-[#d8e1ec] bg-white px-6">
+        <header className="app-header sticky top-0 z-30 flex h-[62px] items-center gap-4 border-b border-[#d8e1ec] bg-white px-6">
           <button className="md:hidden" onClick={() => setOpen(true)} aria-label="Open navigation"><Menu /></button>
           <div className="text-sm font-extrabold text-[#073b82]">{user.role === "technician" ? "Refill Operations" : "Live Monitoring"}</div>
-          <div className="ml-auto flex items-center gap-4"><Link href="/alerts" className="relative text-slate-600" aria-label={`${unreadQuery.data?.count || 0} unread notifications`}><Bell size={19} />{Boolean(unreadQuery.data?.count) && <span className="absolute -right-2 -top-2 grid min-h-4 min-w-4 place-items-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white">{Math.min(unreadQuery.data?.count || 0, 99)}</span>}</Link><div className="h-7 w-px bg-slate-200" /><div className="flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-full bg-[#e6eef8] text-[#073b82]"><UserRound size={16} /></span><div className="hidden text-right sm:block"><div className="text-[12px] font-bold">{user.username}</div><div className="text-[10px] text-slate-500">{roleLabel}</div></div></div></div>
+          <div className="ml-auto flex items-center gap-3"><button onClick={toggleTheme} className="theme-toggle grid size-9 place-items-center rounded-lg text-slate-600 transition hover:bg-slate-100" aria-label={`Switch to ${lightMode ? "dark" : "light"} mode`} title={`Switch to ${lightMode ? "dark" : "light"} mode`}>{lightMode ? <Moon size={18} /> : <Sun size={18} />}</button><Link href="/alerts" className="relative text-slate-600" aria-label={`${unreadQuery.data?.count || 0} unread notifications`}><Bell size={19} />{Boolean(unreadQuery.data?.count) && <span className="absolute -right-2 -top-2 grid min-h-4 min-w-4 place-items-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white">{Math.min(unreadQuery.data?.count || 0, 99)}</span>}</Link><div className="h-7 w-px bg-slate-200" /><div className="flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-full bg-[#e6eef8] text-[#073b82]"><UserRound size={16} /></span><div className="hidden text-right sm:block"><div className="text-[12px] font-bold">{user.username}</div><div className="text-[10px] text-slate-500">{roleLabel}</div></div></div></div>
         </header>
         <NotificationPermissionBanner />
         <main className="min-h-[calc(100vh-110px)] p-6">{children}</main>
-        <footer className="flex min-h-12 items-center justify-between border-t border-[#d8e1ec] bg-white px-6 text-[10px] text-slate-500"><span>© 2026 LPG Guardian.</span><div className="flex gap-5"><span>Terms of Service</span><span>Privacy Policy</span><span>Contact Support</span></div></footer>
+        <footer className="app-footer flex min-h-12 items-center justify-between border-t border-[#d8e1ec] bg-white px-6 text-[10px] text-slate-500"><span>© 2026 LPG Guardian.</span><div className="flex gap-5"><span>Terms of Service</span><span>Privacy Policy</span><span>Contact Support</span></div></footer>
       </div>
     </div>
   );

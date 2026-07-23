@@ -136,6 +136,53 @@ a { color: inherit; text-decoration: none; }
 .app-theme table th { letter-spacing: .08em; }
 .app-theme option { background: #101d31; color: #f8fafc; }
 
+/* User-selectable light palette for every authenticated dashboard. */
+.app-theme.app-theme-light {
+  --navy: #0b58b5; --navy-deep: #073b82; --blue: #0b58b5; --green: #16863a;
+  --ink: #102033; --muted: #56677d; --line: #d8e1ec; --surface: #fff; --canvas: #f3f6fa;
+  color-scheme: light; color: var(--ink); background: #f3f6fa;
+}
+.app-theme-light .app-sidebar { border-color: #d8e1ec; background: rgba(255,255,255,.97); color: #102033; }
+.app-theme-light .app-sidebar > div:first-child { border-color: #d8e1ec; }
+.app-theme-light .app-sidebar nav a:not(.bg-orange-500) { color: #56677d; }
+.app-theme-light .app-sidebar nav a:not(.bg-orange-500):hover,
+.app-theme-light .app-sidebar button:hover { background: #edf3fa; color: #073b82; }
+.app-theme-light .app-header, .app-theme-light .app-footer { border-color: #d8e1ec !important; background: rgba(255,255,255,.97) !important; }
+.app-theme-light .card { background: #fff; border-color: #d8e1ec; box-shadow: 0 8px 28px -24px rgba(7,59,130,.35); color: #102033; }
+.app-theme-light .card:hover { border-color: #c4d1e0; box-shadow: 0 12px 32px -24px rgba(7,59,130,.4); }
+.app-theme-light .page-title, .app-theme-light .section-title { color: #0b2442; }
+.app-theme-light .page-subtitle { color: #56677d; }
+.app-theme-light .label { color: #34495f; }
+.app-theme-light .field { border-color: #aebed0; background: #fff; color: #102033; }
+.app-theme-light .field::placeholder { color: #7b8da3; }
+.app-theme-light .field:disabled { background: #edf1f5 !important; color: #64748b; }
+.app-theme-light select.field { color-scheme: light; }
+.app-theme-light .btn-secondary { border-color: #9db0c6; background: #fff; color: #15314f; }
+.app-theme-light .btn-secondary:hover { border-color: #7188a2; background: #f3f6fa; }
+.app-theme-light .btn-danger { border-color: #e9a3a3; background: #fff6f6; color: #b42318; }
+.app-theme-light .badge-green { border-color: #b9e6c5; background: #dff5e5; color: #0d6b2b; }
+.app-theme-light .badge-orange { border-color: #f2d59c; background: #fff0cf; color: #9a5400; }
+.app-theme-light .badge-red { border-color: #f0b8b5; background: #ffe2e1; color: #b42318; }
+.app-theme-light .badge-blue { border-color: #bed5f3; background: #e3efff; color: #074c9e; }
+.app-theme-light .bg-white { background-color: #fff !important; }
+.app-theme-light .bg-slate-50 { background-color: #f8fafc !important; }
+.app-theme-light .bg-slate-100 { background-color: #f1f5f9 !important; }
+.app-theme-light .bg-blue-50 { background-color: #eff6ff !important; }
+.app-theme-light .bg-green-50, .app-theme-light .bg-emerald-50 { background-color: #f0fdf4 !important; }
+.app-theme-light .bg-red-50 { background-color: #fef2f2 !important; }
+.app-theme-light .bg-amber-50, .app-theme-light .bg-orange-50 { background-color: #fff7ed !important; }
+.app-theme-light .text-\[\#0b2442\], .app-theme-light .text-\[\#071425\], .app-theme-light .text-slate-700, .app-theme-light .text-slate-800, .app-theme-light .text-slate-900 { color: #102033 !important; }
+.app-theme-light .text-\[\#073b82\] { color: #073b82 !important; }
+.app-theme-light .text-\[\#56677d\], .app-theme-light .text-\[\#35506f\], .app-theme-light .text-slate-500, .app-theme-light .text-slate-600 { color: #56677d !important; }
+.app-theme-light .text-blue-900, .app-theme-light .text-blue-700 { color: #074c9e !important; }
+.app-theme-light .text-green-800, .app-theme-light .text-green-700, .app-theme-light .text-emerald-700 { color: #0d6b2b !important; }
+.app-theme-light .text-red-800, .app-theme-light .text-red-700 { color: #b42318 !important; }
+.app-theme-light .text-amber-700, .app-theme-light .text-orange-700 { color: #9a5400 !important; }
+.app-theme-light .border-slate-100, .app-theme-light .border-slate-200, .app-theme-light .border-slate-300 { border-color: #d8e1ec !important; }
+.app-theme-light table thead { background: #f8fafc; color: #56677d; }
+.app-theme-light table tbody tr:hover { background: #f8fafc; }
+.app-theme-light option { background: #fff; color: #102033; }
+
 /* Authentication pages share the landing palette. */
 .auth-theme { color-scheme: dark; color: #e2e8f0; }
 .auth-theme .bg-white { background-color: rgba(255,255,255,.04) !important; }
