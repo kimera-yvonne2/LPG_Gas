@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { Helmet } from "react-helmet-async";
 import { createBrowserRouter, Outlet } from "react-router-dom";
 import HomePage from "@/app/page";
