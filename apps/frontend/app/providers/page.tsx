@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { Navigate } from "react-router-dom";
 
 export default function ProvidersPage() {
-  redirect("/refills");
+  return <Navigate to="/refills" replace />;
 }

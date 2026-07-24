@@ -1,11 +1,10 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { AlertTriangle, CheckCircle2, Clock3, Flame, RefreshCw, Scale, Wifi } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useNavigate } from "react-router-dom";
 import { AdminDashboard } from "@/components/admin-dashboard";
 import { GasCylinderLevel } from "@/components/gas-cylinder-level";
 import { api } from "@/lib/api";
@@ -13,23 +12,20 @@ import { useAuth } from "@/lib/auth";
 import { ApiList, Cylinder, DepletionEstimate, Reading, Sensor, rows } from "@/lib/domain";
 import { telemetryErrorMessage, toTelemetryPoints } from "@/lib/telemetry";
 
-const TelemetryChart = dynamic(() => import("@/components/telemetry-chart"), {
-  ssr: false,
-  loading: () => <div className="grid h-[300px] place-items-center text-sm text-slate-500">Loading chart...</div>,
-});
+const TelemetryChart = lazy(() => import("@/components/telemetry-chart"));
 
 type History = { cylinder: number; sample_minutes: number; latest?: Reading; points: Reading[] };
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
+  const navigate = useNavigate();
   const [selectedCylinder, setSelectedCylinder] = useState<number | null>(null);
 
   useEffect(() => {
     if (!authLoading && user?.role === "technician") {
-      router.replace("/refills");
+      navigate("/refills", { replace: true });
     }
-  }, [authLoading, router, user]);
+  }, [authLoading, navigate, user]);
 
   const overviewQuery = useQuery({
     queryKey: ["household-dashboard-overview"],
@@ -219,7 +215,9 @@ export default function DashboardPage() {
               <span className="rounded-full border border-white/[.08] bg-white/[.025] px-3 py-1.5 text-[9px] font-bold text-slate-500">15 minute samples</span>
             </div>
             {points.length ? (
-              <TelemetryChart points={points} />
+              <Suspense fallback={<div className="grid h-[300px] place-items-center text-sm text-slate-500">Loading chart...</div>}>
+                <TelemetryChart points={points} />
+              </Suspense>
             ) : (
               <div className="grid min-h-[220px] place-items-center text-sm text-slate-500">
                 History will appear after valid readings are received.

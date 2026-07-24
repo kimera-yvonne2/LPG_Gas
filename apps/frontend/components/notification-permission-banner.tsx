@@ -1,7 +1,7 @@
 "use client";
 
 import { Bell, ExternalLink } from "lucide-react";
-import Link from "next/link";
+import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 
 import {
@@ -60,7 +60,7 @@ export function NotificationPermissionBanner() {
             Allow notifications for this site in your browser settings, then return to Settings.
           </p>
         </div>
-        <Link href="/settings" className="btn-secondary shrink-0">
+        <Link to="/settings" className="btn-secondary shrink-0">
           Settings <ExternalLink size={13} aria-hidden="true" />
         </Link>
       </section>

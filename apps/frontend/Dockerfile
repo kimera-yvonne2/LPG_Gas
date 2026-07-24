@@ -12,15 +12,11 @@ ENV NODE_ENV=development
 EXPOSE 3000
 
 FROM base AS builder
+ARG VITE_API_URL=http://localhost:8000/api/v1
+ENV VITE_API_URL=$VITE_API_URL
 RUN npm --workspace @lpg-guardian/frontend run build
 
-FROM node:22-alpine AS production
-WORKDIR /app
-ENV NODE_ENV=production
-RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
-COPY --from=builder --chown=nextjs:nodejs /workspace/apps/frontend/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /workspace/apps/frontend/.next/static ./apps/frontend/.next/static
-COPY --from=builder --chown=nextjs:nodejs /workspace/apps/frontend/public ./apps/frontend/public
-USER nextjs
+FROM nginx:alpine AS production
+COPY apps/frontend/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /workspace/apps/frontend/dist /usr/share/nginx/html
 EXPOSE 3000
-CMD ["node", "apps/frontend/server.js"]

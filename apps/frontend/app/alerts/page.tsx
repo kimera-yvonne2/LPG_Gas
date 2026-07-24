@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Bell, CheckCircle2 } from "lucide-react";
-import Link from "next/link";
+import { Link } from "react-router-dom";
 import { PageHeading } from "@/components/ui-kit";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";

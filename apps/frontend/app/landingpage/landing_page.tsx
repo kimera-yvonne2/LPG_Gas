@@ -15,7 +15,7 @@ import {
   Wifi,
   X,
 } from "lucide-react";
-import Link from "next/link";
+import { Link } from "react-router-dom";
 import { useState } from "react";
 import { GasCylinderLevel } from "@/components/gas-cylinder-level";
 
@@ -61,7 +61,7 @@ const toneStyles = {
 
 function Brand({ compact = false }: { compact?: boolean }) {
   return (
-    <Link href="/" className="group flex items-center gap-3" aria-label="Lumora home">
+    <Link to="/" className="group flex items-center gap-3" aria-label="Lumora home">
       <span className="relative grid size-11 place-items-center overflow-hidden rounded-[15px] bg-gradient-to-br from-orange-300 via-orange-500 to-orange-700 shadow-[0_12px_30px_-12px_rgba(249,115,22,.8)] transition-transform group-hover:-rotate-3">
         <span className="absolute inset-[3px] rounded-[12px] border border-white/25" />
         <Gauge className="relative size-5 text-white" strokeWidth={2.6} />
@@ -154,8 +154,8 @@ export default function LumoraApp() {
             ))}
           </div>
           <div className="hidden items-center gap-2 md:flex">
-            <Link href="/auth/login" className="rounded-xl border border-white/[.08] bg-white/[.025] px-4 py-2.5 text-[11px] font-bold text-slate-200 shadow-inner transition hover:bg-white/[.06]">Log in</Link>
-            <Link href="/auth/signup" className="group flex items-center gap-2 rounded-xl bg-gradient-to-b from-orange-400 to-orange-600 px-5 py-3 text-[11px] font-extrabold text-white shadow-[0_14px_34px_-16px_rgba(249,115,22,.9)] transition hover:-translate-y-0.5">Get started <ArrowRight size={14} className="transition group-hover:translate-x-0.5" /></Link>
+            <Link to="/auth/login" className="rounded-xl border border-white/[.08] bg-white/[.025] px-4 py-2.5 text-[11px] font-bold text-slate-200 shadow-inner transition hover:bg-white/[.06]">Log in</Link>
+            <Link to="/auth/signup" className="group flex items-center gap-2 rounded-xl bg-gradient-to-b from-orange-400 to-orange-600 px-5 py-3 text-[11px] font-extrabold text-white shadow-[0_14px_34px_-16px_rgba(249,115,22,.9)] transition hover:-translate-y-0.5">Get started <ArrowRight size={14} className="transition group-hover:translate-x-0.5" /></Link>
           </div>
           <button onClick={() => setMenuOpen(!menuOpen)} className="grid size-10 place-items-center rounded-xl border border-white/10 text-white md:hidden" aria-label="Toggle navigation" aria-expanded={menuOpen}>{menuOpen ? <X size={19} /> : <Menu size={19} />}</button>
         </nav>
@@ -163,7 +163,7 @@ export default function LumoraApp() {
           <div className="border-t border-white/[.07] bg-[#0b1628]/95 p-5 backdrop-blur-xl md:hidden">
             <div className="flex flex-col gap-2">
               {["How it works", "Features", "Dashboard"].map((item) => <a key={item} href={`#${item.toLowerCase().replaceAll(" ", "-")}`} onClick={() => setMenuOpen(false)} className="rounded-xl px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-white/5">{item}</a>)}
-              <Link href="/auth/signup" className="mt-2 rounded-xl bg-orange-500 px-4 py-3 text-center text-sm font-bold text-white">Get started</Link>
+              <Link to="/auth/signup" className="mt-2 rounded-xl bg-orange-500 px-4 py-3 text-center text-sm font-bold text-white">Get started</Link>
             </div>
           </div>
         )}
@@ -181,7 +181,7 @@ export default function LumoraApp() {
               Lumora turns your LPG cylinder into one calm, clear view—how much is left, whether it is safe, and when to refill.
             </p>
             <div className="lumora-rise mt-9 flex flex-col gap-3 sm:flex-row [--rise-delay:.24s]">
-              <Link href="/auth/signup" className="group flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-b from-orange-400 to-orange-600 px-7 py-4 text-sm font-extrabold text-white shadow-[0_18px_45px_-18px_rgba(249,115,22,.95)] transition hover:-translate-y-0.5">Start monitoring <ArrowRight size={17} className="transition group-hover:translate-x-1" /></Link>
+              <Link to="/auth/signup" className="group flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-b from-orange-400 to-orange-600 px-7 py-4 text-sm font-extrabold text-white shadow-[0_18px_45px_-18px_rgba(249,115,22,.95)] transition hover:-translate-y-0.5">Start monitoring <ArrowRight size={17} className="transition group-hover:translate-x-1" /></Link>
               <a href="#how-it-works" className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[.03] px-7 py-4 text-sm font-bold text-white shadow-inner backdrop-blur transition hover:border-white/20 hover:bg-white/[.06]">See how it works <ChevronRight size={16} /></a>
             </div>
             <div className="lumora-rise mt-8 flex flex-wrap gap-x-6 gap-y-3 text-[10px] font-bold text-slate-500 [--rise-delay:.32s]">
@@ -245,13 +245,13 @@ export default function LumoraApp() {
           <div className="lumora-panel relative overflow-hidden rounded-[34px] px-6 py-14 sm:px-14 sm:py-16 lg:flex lg:items-center lg:justify-between lg:gap-16">
             <div className="lumora-orb -right-20 -top-40 size-96 bg-orange-500/15" />
             <div className="relative max-w-2xl"><span className="mb-6 grid size-12 place-items-center rounded-2xl bg-gradient-to-br from-orange-400 to-orange-600 text-white shadow-lg shadow-orange-500/20"><Sparkles size={21} /></span><h2 className="text-3xl font-black tracking-[-.045em] text-white sm:text-5xl">A calmer relationship with your gas.</h2><p className="mt-5 max-w-xl text-sm leading-7 text-slate-400 sm:text-base">Replace tapping, lifting, and last-minute surprises with one useful view of your cylinder.</p></div>
-            <div className="relative mt-9 shrink-0 lg:mt-0"><Link href="/auth/signup" className="group flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-b from-orange-300 to-orange-500 px-7 py-4 text-sm font-black text-[#241206] shadow-[0_18px_45px_-20px_rgba(249,115,22,.9)] transition hover:-translate-y-0.5">Create your free account <ArrowRight size={17} className="transition group-hover:translate-x-1" /></Link><p className="mt-3 text-center text-[10px] text-slate-500">Takes less than two minutes</p></div>
+            <div className="relative mt-9 shrink-0 lg:mt-0"><Link to="/auth/signup" className="group flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-b from-orange-300 to-orange-500 px-7 py-4 text-sm font-black text-[#241206] shadow-[0_18px_45px_-20px_rgba(249,115,22,.9)] transition hover:-translate-y-0.5">Create your free account <ArrowRight size={17} className="transition group-hover:translate-x-1" /></Link><p className="mt-3 text-center text-[10px] text-slate-500">Takes less than two minutes</p></div>
           </div>
         </section>
       </main>
 
       <footer className="border-t border-white/[.06] bg-[#050b14]">
-        <div className="mx-auto flex max-w-[1240px] flex-col gap-8 px-5 py-10 sm:px-8 md:flex-row md:items-center md:justify-between"><Brand /><div className="flex flex-wrap gap-6 text-[10px] font-bold text-slate-500"><a href="#features" className="hover:text-white">Features</a><a href="#how-it-works" className="hover:text-white">How it works</a><Link href="/auth/login" className="hover:text-white">Log in</Link><span>© 2026 Lumora</span></div></div>
+        <div className="mx-auto flex max-w-[1240px] flex-col gap-8 px-5 py-10 sm:px-8 md:flex-row md:items-center md:justify-between"><Brand /><div className="flex flex-wrap gap-6 text-[10px] font-bold text-slate-500"><a href="#features" className="hover:text-white">Features</a><a href="#how-it-works" className="hover:text-white">How it works</a><Link to="/auth/login" className="hover:text-white">Log in</Link><span>© 2026 Lumora</span></div></div>
       </footer>
     </div>
   );
