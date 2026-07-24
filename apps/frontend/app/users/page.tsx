@@ -43,7 +43,7 @@ export default function UsersPage() {
         <ShieldCheck className="mx-auto text-[#073b82]" />
         <h1 className="section-title mt-3">Administrator access required</h1>
         <p className="mt-2 text-xs text-slate-500">
-          User provisioning is restricted to LPG Guardian administrators.
+          User provisioning is restricted to Lumora administrators.
         </p>
       </div>
     );

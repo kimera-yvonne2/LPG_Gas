@@ -46,7 +46,7 @@ export default function NotificationsPage() {
     <div className="mx-auto max-w-[1180px]">
       <PageHeading
         title="Notifications"
-        subtitle="Safety, refill, device, and account updates for your LPG Guardian account."
+        subtitle="Safety, refill, device, and account updates for your Lumora account."
         action={unread > 0 ? <button type="button" disabled={markAllRead.isPending} onClick={() => markAllRead.mutate()} className="btn-secondary">Mark all read</button> : undefined}
       />
       {query.isLoading ? (

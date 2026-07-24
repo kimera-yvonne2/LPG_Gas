@@ -55,7 +55,7 @@ export default function LoginPage() {
   };
 
   return (
-    <AuthFrame title="Welcome back" subtitle="Sign in to your LPG Guardian workspace.">
+    <AuthFrame title="Welcome back" subtitle="Sign in to your Lumora workspace.">
       <div className="mb-5 grid gap-2 sm:grid-cols-3">
         {roles.map(({ id, label, detail, icon: Icon }) => (
           <button

@@ -3,9 +3,9 @@ self.addEventListener("push", (event) => {
   try {
     payload = event.data ? event.data.json() : {};
   } catch {
-    payload = { title: "LPG Guardian", body: event.data?.text() || "New notification" };
+    payload = { title: "Lumora", body: event.data?.text() || "New notification" };
   }
-  event.waitUntil(self.registration.showNotification(payload.title || "LPG Guardian", {
+  event.waitUntil(self.registration.showNotification(payload.title || "Lumora", {
     body: payload.body || "You have a new notification.",
     data: { url: payload.url || "/alerts", notificationId: payload.notification_id },
     tag: payload.tag || `lpg-${payload.notification_id || Date.now()}`,

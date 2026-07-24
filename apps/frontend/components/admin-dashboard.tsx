@@ -71,7 +71,7 @@ export function AdminDashboard({ username }: { username: string }) {
       <div>
         <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-[#0b58b5]">Platform administration</p>
         <h1 className="mt-1 text-[26px] font-extrabold tracking-[-0.02em] text-[#0b2442]">Welcome back, {username}</h1>
-        <p className="mt-1 text-[13px] text-[#56677d]">Full operational visibility and control across LPG Guardian.</p>
+        <p className="mt-1 text-[13px] text-[#56677d]">Full operational visibility and control across Lumora.</p>
       </div>
       <Link href="/users" className="btn-primary"><Users size={15} /> Manage Users</Link>
     </header>

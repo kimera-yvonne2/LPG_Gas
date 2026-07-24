@@ -5,17 +5,16 @@ import { useId } from "react";
 type LevelTone = {
   color: string;
   label: string;
-  textClass: string;
 };
 
 export function gasLevelTone(value: number): LevelTone {
   if (value > 60) {
-    return { color: "#22c55e", label: "Good", textClass: "text-green-700" };
+    return { color: "#22c55e", label: "Good" };
   }
   if (value >= 30) {
-    return { color: "#f97316", label: "Running low", textClass: "text-orange-700" };
+    return { color: "#f97316", label: "Running low" };
   }
-  return { color: "#ef4444", label: "Refill soon", textClass: "text-red-700" };
+  return { color: "#ef4444", label: "Refill soon" };
 }
 
 export function GasCylinderLevel({ value }: { value: number }) {
@@ -85,10 +84,10 @@ export function GasCylinderLevel({ value }: { value: number }) {
       </svg>
 
       <div className="min-w-[104px]">
-        <strong className={`block text-[42px] font-black leading-none tracking-[-0.05em] ${tone.textClass}`}>
+        <strong className="block text-[42px] font-black leading-none tracking-[-0.05em]" style={{ color: tone.color }}>
           {percentage.toFixed(1)}%
         </strong>
-        <span className={`mt-3 inline-flex rounded-full border border-current/20 px-3 py-1 text-[11px] font-extrabold ${tone.textClass}`}>
+        <span className="mt-3 inline-flex rounded-full border border-current/20 px-3 py-1 text-[11px] font-extrabold" style={{ color: tone.color }}>
           {tone.label}
         </span>
         <p className="mt-2 text-[11px] text-slate-500">Gas remaining</p>

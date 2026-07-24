@@ -1,5 +1,5 @@
-import LPGGuardianApp from "./landingpage/landing_page";
+import LumoraApp from "./landingpage/landing_page";
 
 export default function Home() {
-  return <LPGGuardianApp />;
+  return <LumoraApp />;
 }

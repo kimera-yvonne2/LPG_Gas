@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
-import { AlertTriangle, CheckCircle2, Clock3, RefreshCw, Scale, Wifi } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock3, Flame, RefreshCw, Scale, Sparkles, Wifi } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { AdminDashboard } from "@/components/admin-dashboard";
 import { GasCylinderLevel } from "@/components/gas-cylinder-level";
@@ -115,13 +115,14 @@ export default function DashboardPage() {
   const error = overviewQuery.error ?? historyQuery.error ?? currentQuery.error;
 
   return (
-    <div className="mx-auto max-w-[1120px]">
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
+    <div className="mx-auto max-w-[1160px]">
+      <header className="lumora-rise mb-7 flex flex-wrap items-end justify-between gap-5">
         <div>
-          <h1 className="text-[26px] font-extrabold tracking-[-0.02em] text-[#0b2442]">
-            Hello, {user.username}
+          <p className="lumora-kicker"><Sparkles size={11} /> Home overview</p>
+          <h1 className="mt-2 text-[30px] font-black tracking-[-0.045em] text-white sm:text-[34px]">
+            Good to see you, <span className="text-orange-400">{user.username}</span>
           </h1>
-          <p className="mt-1 text-[12px] text-slate-500">Your gas level at a glance.</p>
+          <p className="mt-2 text-[12px] text-slate-500">Everything important about your cylinder, without the searching.</p>
         </div>
         {cylinders.length > 1 && cylinderId && (
           <div className="w-full sm:w-auto">
@@ -157,12 +158,15 @@ export default function DashboardPage() {
         <State text="Connect a sensor and cylinder to see your gas level here." />
       ) : (
         <>
-          <section className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]" aria-label="Current gas status">
-            <article className="card min-h-[350px] p-5 sm:p-7">
+          <section className="grid gap-5 lg:grid-cols-[1.18fr_0.82fr]" aria-label="Current gas status">
+            <article className="card lumora-panel lumora-rise min-h-[370px] p-5 [--rise-delay:.08s] sm:p-7">
+              <span className="lumora-orb -bottom-32 -left-24 size-72 bg-orange-500/[.08]" />
               <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="section-title">Gas remaining</h2>
+                <div className="flex items-center gap-3">
+                  <span className="grid size-10 place-items-center rounded-2xl bg-orange-400/10 text-orange-300 ring-1 ring-orange-300/15"><Flame size={18} /></span>
+                  <div><h2 className="section-title">Gas remaining</h2>
                   <p className="mt-1 text-[11px] text-slate-500">Live cylinder reading</p>
+                  </div>
                 </div>
                 <span className={`badge ${isOnline ? "badge-green" : "badge-orange"}`}>
                   <Wifi size={12} className="mr-1" aria-hidden="true" />
@@ -178,8 +182,8 @@ export default function DashboardPage() {
               </div>
             </article>
 
-            <article className="card p-5 sm:p-6">
-              <h2 className="section-title">At a glance</h2>
+            <article className="card lumora-rise p-5 [--rise-delay:.16s] sm:p-6">
+              <div className="flex items-center justify-between"><div><p className="lumora-kicker">Today</p><h2 className="section-title mt-2">At a glance</h2></div><span className="text-[9px] font-bold uppercase tracking-[.12em] text-slate-600">Live data</span></div>
               <div className="mt-4 divide-y divide-slate-200">
                 <StatusRow
                   icon={<Scale size={18} />}
@@ -204,12 +208,15 @@ export default function DashboardPage() {
             </article>
           </section>
 
-          <section className="card mt-5 p-5 sm:p-6" aria-labelledby="gas-history-title">
-            <div>
-              <h2 id="gas-history-title" className="section-title">Gas level history</h2>
+          <section className="card lumora-rise mt-5 p-5 [--rise-delay:.24s] sm:p-7" aria-labelledby="gas-history-title">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div><p className="lumora-kicker">Usage pattern</p>
+              <h2 id="gas-history-title" className="section-title mt-2">Gas level history</h2>
               <p id="gas-history-description" className="mt-1 text-[11px] text-slate-500">
                 See how your gas level changes over time.
               </p>
+              </div>
+              <span className="rounded-full border border-white/[.08] bg-white/[.025] px-3 py-1.5 text-[9px] font-bold text-slate-500">15 minute samples</span>
             </div>
             {points.length ? (
               <TelemetryChart points={points} />
@@ -237,8 +244,8 @@ function StatusRow({
   danger?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-3 py-5 first:pt-2">
-      <span className={`grid size-9 shrink-0 place-items-center rounded-xl ${danger ? "bg-red-50 text-red-700" : "bg-slate-100 text-slate-600"}`}>
+    <div className="group flex items-center gap-3 py-5 first:pt-3">
+      <span className={`grid size-10 shrink-0 place-items-center rounded-[14px] ring-1 transition group-hover:scale-105 ${danger ? "bg-red-50 text-red-700 ring-red-400/15" : "bg-orange-400/[.07] text-orange-300 ring-orange-300/10"}`}>
         {icon}
       </span>
       <span className="min-w-0 flex-1 text-xs text-slate-500">{label}</span>
