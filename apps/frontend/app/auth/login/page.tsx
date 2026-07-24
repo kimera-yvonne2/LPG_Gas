@@ -2,8 +2,7 @@
 
 import axios from "axios";
 import { AlertCircle, Eye, EyeOff, Home, LockKeyhole, Mail, ShieldCheck, Wrench, type LucideIcon } from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { Link, useNavigate } from "react-router-dom";
 import { FormEvent, useState } from "react";
 import { SignupFrame } from "@/components/auth-frame";
 import { apiErrorMessage } from "@/lib/api-error";
@@ -18,7 +17,7 @@ const roles: { id: Role; label: string; detail: string; icon: typeof Home }[] = 
 
 export default function LoginPage() {
   const { login, logout } = useAuth();
-  const router = useRouter();
+  const navigate = useNavigate();
   const [role, setRole] = useState<Role>("household");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -35,8 +34,9 @@ export default function LoginPage() {
         await logout();
         throw new Error(`This account is registered as ${user.role}, not ${role}.`);
       }
-      router.replace(
+      navigate(
         postLoginPath(new URLSearchParams(window.location.search).get("next"), user.role),
+        { replace: true },
       );
     } catch (reason) {
       if (axios.isAxiosError(reason)) {
@@ -102,7 +102,7 @@ export default function LoginPage() {
       </form>
       <p className="mt-6 text-center text-xs text-slate-500">
         New household?{" "}
-        <Link className="font-extrabold text-orange-400 transition hover:text-orange-300" href="/auth/signup">Create your monitoring account</Link>
+        <Link className="font-extrabold text-orange-400 transition hover:text-orange-300" to="/auth/signup">Create your monitoring account</Link>
       </p>
       {role !== "household" && (
         <p className="mt-4 text-center text-[10px] leading-4 text-slate-700">

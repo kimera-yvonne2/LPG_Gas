@@ -1,6 +1,5 @@
-import { redirect } from "next/navigation";
+import { Navigate } from "react-router-dom";
 
 export default function AnalyticsPage() {
-  redirect("/dashboard");
-  return null;
+  return <Navigate to="/dashboard" replace />;
 }

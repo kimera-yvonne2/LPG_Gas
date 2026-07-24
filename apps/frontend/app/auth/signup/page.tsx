@@ -12,7 +12,7 @@ import {
   UserRound,
   type LucideIcon,
 } from "lucide-react";
-import Link from "next/link";
+import { Link } from "react-router-dom";
 import { FormEvent, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { SignupFrame } from "@/components/auth-frame";
@@ -70,7 +70,7 @@ export default function SignupPage() {
           <p className="mx-auto mt-5 max-w-sm text-sm leading-6 text-slate-400">
             Your account for <strong className="text-white">{form.email}</strong> is active. You can sign in immediately.
           </p>
-          <Link href="/auth/login" className="btn-primary mt-7 min-w-44">Sign in now</Link>
+          <Link to="/auth/login" className="btn-primary mt-7 min-w-44">Sign in now</Link>
         </div>
       </SignupFrame>
     );
@@ -146,7 +146,7 @@ export default function SignupPage() {
 
       <p className="mt-6 text-center text-xs text-slate-500">
         Already have an account?{" "}
-        <Link className="font-extrabold text-orange-400 transition hover:text-orange-300" href="/auth/login">Sign in</Link>
+        <Link className="font-extrabold text-orange-400 transition hover:text-orange-300" to="/auth/login">Sign in</Link>
       </p>
       <p className="mt-4 text-center text-[9px] leading-4 text-slate-700">
         By creating an account, you agree to use Lumora responsibly and keep your login details secure.

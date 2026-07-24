@@ -10,7 +10,7 @@ import {
   Truck,
   Users,
 } from "lucide-react";
-import Link from "next/link";
+import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import type { User } from "@/lib/auth";
 import {
@@ -73,7 +73,7 @@ export function AdminDashboard({ username }: { username: string }) {
         <h1 className="mt-1 text-[26px] font-extrabold tracking-[-0.02em] text-[#0b2442]">Welcome back, {username}</h1>
         <p className="mt-1 text-[13px] text-[#56677d]">Full operational visibility and control across Lumora.</p>
       </div>
-      <Link href="/users" className="btn-primary"><Users size={15} /> Manage Users</Link>
+      <Link to="/users" className="btn-primary"><Users size={15} /> Manage Users</Link>
     </header>
 
     {query.isError && <div role="alert" className="mb-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
@@ -91,7 +91,7 @@ export function AdminDashboard({ username }: { username: string }) {
       <div className="card overflow-hidden">
         <div className="flex items-center justify-between border-b border-slate-200 p-5">
           <div><h2 className="section-title">Recent refill operations</h2><p className="mt-1 text-xs text-slate-500">Latest requests across all households and technicians.</p></div>
-          <Link href="/refills" className="text-xs font-extrabold text-[#073b82]">View all</Link>
+          <Link to="/refills" className="text-xs font-extrabold text-[#073b82]">View all</Link>
         </div>
         {query.isLoading ? <State text="Loading refill operations…" /> : !refills.length ? <State text="No refill requests have been submitted." /> : <div className="divide-y divide-slate-100">
           {refills.slice(0, 5).map(request => <div key={request.id} className="flex items-center gap-3 px-5 py-4">
@@ -108,7 +108,7 @@ export function AdminDashboard({ username }: { username: string }) {
             {urgentReadings.length ? <AlertTriangle className="text-red-700" /> : <CheckCircle2 className="text-green-700" />}
             <div><h2 className="section-title">Safety status</h2><p className="mt-1 text-xs text-slate-600">{urgentReadings.length ? `${urgentReadings.length} warning readings require review.` : "No warnings in the latest telemetry."}</p></div>
           </div>
-          <Link href="/cylinders" className="btn-secondary mt-5 w-full">Review Cylinders <ArrowRight size={14} /></Link>
+          <Link to="/cylinders" className="btn-secondary mt-5 w-full">Review Cylinders <ArrowRight size={14} /></Link>
         </article>
         <nav className="card p-5" aria-label="Administration shortcuts">
           <h2 className="section-title">Administration</h2>
@@ -126,4 +126,4 @@ export function AdminDashboard({ username }: { username: string }) {
 function total<T>(data?: ApiList<T>) { return data && !Array.isArray(data) ? data.count : rows(data).length; }
 function Metric({ label, value, detail, icon, loading }: { label: string; value: number; detail: string; icon: React.ReactNode; loading: boolean }) { return <article className="card p-5"><div className="flex items-center justify-between text-[#073b82]"><span className="text-[11px] font-extrabold uppercase tracking-wide text-slate-500">{label}</span>{icon}</div><div className="mt-5 text-3xl font-black text-[#0b2442]">{loading ? "—" : value}</div><p className="mt-2 text-[11px] text-slate-500">{loading ? "Loading…" : detail}</p></article>; }
 function State({ text }: { text: string }) { return <div className="grid min-h-48 place-items-center p-5 text-xs text-slate-500">{text}</div>; }
-function AdminLink({ href, label }: { href: string; label: string }) { return <Link href={href} className="flex items-center justify-between py-3 text-xs font-bold text-slate-700 hover:text-[#073b82]"><span>{label}</span><ArrowRight size={14} /></Link>; }
+function AdminLink({ href, label }: { href: string; label: string }) { return <Link to={href} className="flex items-center justify-between py-3 text-xs font-bold text-slate-700 hover:text-[#073b82]"><span>{label}</span><ArrowRight size={14} /></Link>; }

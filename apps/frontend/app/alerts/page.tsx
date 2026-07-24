@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Bell, CheckCircle2 } from "lucide-react";
-import Link from "next/link";
+import { Link } from "react-router-dom";
 import { PageHeading } from "@/components/ui-kit";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -65,7 +65,7 @@ export default function NotificationsPage() {
         <div className="space-y-3">
           {notifications.map((notification) => (
             <Link
-              href={notification.target_url}
+              to={notification.target_url}
               key={notification.id}
               onClick={() => { if (!notification.is_read) markRead.mutate(notification.id); }}
               className={`card flex gap-4 border-l-4 p-4 transition hover:bg-slate-50 ${notification.severity === "critical" ? "border-l-red-600" : notification.severity === "warning" ? "border-l-orange-500" : "border-l-blue-500"}`}

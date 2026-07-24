@@ -1,14 +1,19 @@
 import { render } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
-
-const { redirect } = vi.hoisted(() => ({ redirect: vi.fn() }));
-vi.mock("next/navigation", () => ({ redirect }));
-
+import { screen } from "@testing-library/dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { describe, expect, it } from "vitest";
 import AnalyticsPage from "./page";
 
 describe("AnalyticsPage", () => {
   it("sends the retired analytics route to the dashboard", () => {
-    render(<AnalyticsPage />);
-    expect(redirect).toHaveBeenCalledWith("/dashboard");
+    render(
+      <MemoryRouter initialEntries={["/analytics"]}>
+        <Routes>
+          <Route path="/analytics" element={<AnalyticsPage />} />
+          <Route path="/dashboard" element={<div>Dashboard</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("Dashboard")).toBeInTheDocument();
   });
 });

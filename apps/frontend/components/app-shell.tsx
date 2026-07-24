@@ -4,8 +4,7 @@ import {
   Bell, Gauge, LogOut, Menu, Settings, ShieldCheck, Truck,
   UserRound, Users, X, ChevronRight, PanelLeftClose, PanelLeftOpen, Moon, Sun,
 } from "lucide-react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Link, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -26,7 +25,7 @@ const navigation: { href: string; label: string; icon: typeof Gauge; roles: Role
 const roleNames: Record<Role, string> = { admin: "Administrator", technician: "Technician", household: "Household" };
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
+  const { pathname } = useLocation();
   const { user, loading, logout } = useAuth();
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -64,7 +63,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {open && <button aria-label="Close navigation overlay" onClick={() => setOpen(false)} className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden" />}
       <aside className={`app-sidebar fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col border-r border-white/[.07] bg-[#081321]/95 text-white shadow-[20px_0_70px_-50px_rgba(0,0,0,.95)] backdrop-blur-2xl transition-[transform,width] duration-300 lg:translate-x-0 ${collapsed ? "lg:w-20" : "lg:w-[260px]"} ${open ? "translate-x-0" : "-translate-x-full"}`}>
         <div className={`flex h-[64px] items-center border-b border-white/[.07] ${collapsed ? "lg:justify-center lg:px-0" : "px-5"}`}>
-          <Link href="/dashboard" className={`flex items-center gap-3 ${collapsed ? "lg:hidden" : ""}`}>
+          <Link to="/dashboard" className={`flex items-center gap-3 ${collapsed ? "lg:hidden" : ""}`}>
             <span className="relative grid size-10 place-items-center overflow-hidden rounded-[14px] bg-gradient-to-br from-orange-300 via-orange-500 to-orange-700 shadow-[0_12px_28px_-12px_rgba(249,115,22,.8)]"><span className="absolute inset-[3px] rounded-[11px] border border-white/25" /><Gauge size={19} className="relative" /></span>
             <span className={collapsed ? "lg:hidden" : ""}><span className="block font-[Raleway] text-[16px] font-black tracking-[-.035em]">Lumora</span><span className="block text-[8px] font-extrabold uppercase tracking-[.2em] text-slate-500">Gas, made visible</span></span>
           </Link>
@@ -76,7 +75,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <nav className="mt-3 space-y-1 px-3">
           {visibleNavigation.map(({ href, label, icon: Icon }) => {
             const active = pathname === href;
-            return <Link key={`${href}-${label}`} href={href} onClick={() => setOpen(false)} title={collapsed ? label : undefined} className={`group flex h-11 items-center gap-3 rounded-[13px] px-3.5 text-[11px] font-bold transition ${collapsed ? "lg:justify-center lg:px-0" : ""} ${active ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-[0_12px_28px_-16px_rgba(249,115,22,.8)] ring-1 ring-orange-300/20" : "text-slate-400 hover:bg-white/[.045] hover:text-white"}`}><Icon size={16} /><span className={collapsed ? "lg:hidden" : ""}>{label}</span>{active && <ChevronRight size={13} className={`ml-auto ${collapsed ? "lg:hidden" : ""}`} />}</Link>;
+            return <Link key={`${href}-${label}`} to={href} onClick={() => setOpen(false)} title={collapsed ? label : undefined} className={`group flex h-11 items-center gap-3 rounded-[13px] px-3.5 text-[11px] font-bold transition ${collapsed ? "lg:justify-center lg:px-0" : ""} ${active ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-[0_12px_28px_-16px_rgba(249,115,22,.8)] ring-1 ring-orange-300/20" : "text-slate-400 hover:bg-white/[.045] hover:text-white"}`}><Icon size={16} /><span className={collapsed ? "lg:hidden" : ""}>{label}</span>{active && <ChevronRight size={13} className={`ml-auto ${collapsed ? "lg:hidden" : ""}`} />}</Link>;
           })}
         </nav>
 
@@ -89,7 +88,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <header className="app-header sticky top-0 z-30 flex h-[64px] items-center gap-4 border-b border-white/[.07] bg-[#081321]/85 px-4 backdrop-blur-2xl sm:px-7">
           <button className="md:hidden" onClick={() => setOpen(true)} aria-label="Open navigation"><Menu /></button>
           <div><div className="text-[12px] font-extrabold text-white">{user.role === "technician" ? "Refill operations" : "Live monitoring"}</div><div className="mt-0.5 hidden text-[8px] font-bold uppercase tracking-[.14em] text-slate-600 sm:block">Lumora workspace</div></div>
-          <div className="ml-auto flex items-center gap-3"><button onClick={toggleTheme} className="theme-toggle grid size-9 place-items-center rounded-lg text-slate-400 transition hover:bg-white/10 hover:text-orange-300" aria-label={`Switch to ${lightMode ? "dark" : "light"} mode`} title={`Switch to ${lightMode ? "dark" : "light"} mode`}>{lightMode ? <Moon size={18} /> : <Sun size={18} />}</button><Link href="/alerts" className="notification-bell relative text-white transition hover:text-orange-300" aria-label={`${unreadQuery.data?.count || 0} unread notifications`}>{Boolean(unreadQuery.data?.count) && <span className="absolute -right-2 -top-2 grid min-h-4 min-w-4 place-items-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white">{Math.min(unreadQuery.data?.count || 0, 99)}</span>}</Link><div className="h-7 w-px bg-white/15" /><div className="flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-full bg-orange-500/15 text-orange-300 ring-1 ring-orange-400/20"><UserRound size={16} /></span><div className="hidden text-right sm:block"><div className="text-[12px] font-bold text-slate-100">{user.username}</div><div className="text-[10px] text-slate-400">{roleLabel}</div></div></div></div>
+          <div className="ml-auto flex items-center gap-3"><button onClick={toggleTheme} className="theme-toggle grid size-9 place-items-center rounded-lg text-slate-400 transition hover:bg-white/10 hover:text-orange-300" aria-label={`Switch to ${lightMode ? "dark" : "light"} mode`} title={`Switch to ${lightMode ? "dark" : "light"} mode`}>{lightMode ? <Moon size={18} /> : <Sun size={18} />}</button><Link to="/alerts" className="notification-bell relative text-white transition hover:text-orange-300" aria-label={`${unreadQuery.data?.count || 0} unread notifications`}>{Boolean(unreadQuery.data?.count) && <span className="absolute -right-2 -top-2 grid min-h-4 min-w-4 place-items-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white">{Math.min(unreadQuery.data?.count || 0, 99)}</span>}</Link><div className="h-7 w-px bg-white/15" /><div className="flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-full bg-orange-500/15 text-orange-300 ring-1 ring-orange-400/20"><UserRound size={16} /></span><div className="hidden text-right sm:block"><div className="text-[12px] font-bold text-slate-100">{user.username}</div><div className="text-[10px] text-slate-400">{roleLabel}</div></div></div></div>
         </header>
         <NotificationPermissionBanner />
         <main className="min-h-[calc(100vh-110px)] p-4 sm:p-7 lg:p-8">{children}</main>
