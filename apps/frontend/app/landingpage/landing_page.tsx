@@ -97,9 +97,7 @@ function ProductPreview() {
   return (
     <div className="relative mx-auto w-full max-w-[610px] lg:mr-0">
       <div className="lumora-orb -inset-10 bg-orange-500/12" />
-      <div className="lumora-float absolute -left-8 top-20 z-20 hidden rounded-2xl border border-white/10 bg-[#14233a]/90 p-3.5 shadow-2xl shadow-black/40 backdrop-blur-xl sm:block [--float-rotate:-4deg]">
-        <div className="flex items-center gap-2 text-[10px] font-bold text-emerald-300"><ShieldCheck size={14} /> No leak detected</div>
-      </div>
+     
       <div className="lumora-float absolute -bottom-6 -right-5 z-20 hidden min-w-36 rounded-2xl border border-white/10 bg-[#14233a]/90 p-4 shadow-2xl shadow-black/40 backdrop-blur-xl sm:block [--float-rotate:3deg] [--float-speed:8s]">
         <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Estimated left</p>
         <p className="mt-1 text-lg font-black text-white">12.4 days</p>
@@ -176,9 +174,7 @@ export default function LumoraApp() {
         <section className="relative mx-auto grid min-h-[790px] max-w-[1240px] items-center gap-16 px-5 pb-24 pt-32 sm:px-8 lg:grid-cols-[.95fr_1.05fr] lg:pt-24">
           <div className="lumora-orb -left-72 top-0 size-[560px] bg-orange-500/[.065]" />
           <div className="relative z-10 max-w-2xl">
-            <div className="lumora-rise lumora-kicker mb-6 rounded-full border border-orange-300/15 bg-orange-400/[.06] px-3 py-1.5">
-              <Radio size={11} className="lumora-pulse" /> Live LPG intelligence for your home
-            </div>
+            
             <h1 className="lumora-rise text-[clamp(3.2rem,6vw,5.7rem)] font-black leading-[.95] tracking-[-.065em] text-white [--rise-delay:.08s]">
               Know your gas level. <span className="bg-gradient-to-r from-orange-300 via-orange-400 to-amber-200 bg-clip-text text-transparent">Live without the guesswork.</span>
             </h1>

@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
-import { AlertTriangle, CheckCircle2, Clock3, Flame, RefreshCw, Scale, Sparkles, Wifi } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock3, Flame, RefreshCw, Scale, Wifi } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { AdminDashboard } from "@/components/admin-dashboard";
 import { GasCylinderLevel } from "@/components/gas-cylinder-level";
@@ -118,7 +118,7 @@ export default function DashboardPage() {
     <div className="mx-auto max-w-[1160px]">
       <header className="lumora-rise mb-7 flex flex-wrap items-end justify-between gap-5">
         <div>
-          <p className="lumora-kicker"><Sparkles size={11} /> Home overview</p>
+         
           <h1 className="mt-2 text-[30px] font-black tracking-[-0.045em] text-white sm:text-[34px]">
             Good to see you, <span className="text-orange-400">{user.username}</span>
           </h1>

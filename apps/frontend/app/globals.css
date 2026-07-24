@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Raleway:wght@600;700;800;900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&family=Raleway:wght@600;700;800;900&display=swap");
 @import "tailwindcss";
 
 :root {
@@ -13,7 +13,7 @@
   --surface: #ffffff;
   --canvas: #f3f6fa;
   --font-heading: "Raleway", "Arial Black", sans-serif;
-  --font-body: "Manrope", Arial, sans-serif;
+  --font-body: "Open Sans", Arial, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -198,36 +198,110 @@ a { color: inherit; text-decoration: none; }
 /* User-selectable light palette for every authenticated dashboard. */
 .app-theme.app-theme-light {
   --navy: #0b58b5; --navy-deep: #073b82; --blue: #0b58b5; --green: #16863a;
-  --ink: #102033; --muted: #56677d; --line: #d8e1ec; --surface: #fff; --canvas: #f3f6fa;
-  color-scheme: light; color: var(--ink); background: #f3f6fa;
+  --ink: #102033; --muted: #56677d; --line: #d8e1ec; --surface: #fff; --canvas: #fff;
+  color-scheme: light; color: var(--ink); background: #fff;
 }
-.app-theme-light .app-sidebar { border-color: #d8e1ec; background: rgba(255,255,255,.97); color: #102033; }
+
+/* ── Sidebar ── */
+.app-theme-light .app-sidebar {
+  border-color: #d8e1ec;
+  background: rgba(255,255,255,.98) !important;
+  color: #102033;
+  box-shadow: 1px 0 0 0 #d8e1ec !important; /* clean 1px line instead of heavy shadow */
+}
 .app-theme-light .app-sidebar > div:first-child { border-color: #d8e1ec; }
-.app-theme-light .app-sidebar nav a:not(.bg-orange-500) { color: #56677d; }
-.app-theme-light .app-sidebar nav a:not(.bg-orange-500):hover,
-.app-theme-light .app-sidebar button:hover { background: #edf3fa; color: #073b82; }
-.app-theme-light .app-header, .app-theme-light .app-footer { border-color: #d8e1ec !important; background: rgba(255,255,255,.97) !important; }
-.app-theme-light .card { background: #fff; border-color: #d8e1ec; box-shadow: 0 8px 28px -24px rgba(7,59,130,.35); color: #102033; }
-.app-theme-light .card:hover { border-color: #c4d1e0; box-shadow: 0 12px 32px -24px rgba(7,59,130,.4); }
+.app-theme-light .app-sidebar .text-slate-500,
+.app-theme-light .app-sidebar .text-slate-400 { color: #56677d !important; }
+.app-theme-light .app-sidebar .text-slate-600 { color: #475569 !important; }
+.app-theme-light .app-sidebar nav a { color: #3d5068 !important; }
+.app-theme-light .app-sidebar nav a:not(.bg-gradient-to-r):hover { background: #fff7ed !important; color: #ea580c !important; }
+.app-theme-light .app-sidebar nav a.bg-gradient-to-r { color: #fff !important; } /* active item stays white */
+.app-theme-light .app-sidebar .text-emerald-300 { color: #0d6b2b !important; }
+.app-theme-light .app-sidebar .bg-emerald-400\/\[\.04\] { background: rgba(22,134,58,.06) !important; border-color: rgba(22,134,58,.15) !important; }
+.app-theme-light .app-sidebar .bg-emerald-400 { background-color: #16863a !important; }
+.app-theme-light .app-sidebar button.text-slate-500 { color: #56677d !important; }
+.app-theme-light .app-sidebar button:hover { background: #fef2f2 !important; color: #b42318 !important; }
+/* Lumora logo text in sidebar */
+.app-theme-light .app-sidebar span.font-black { color: #102033 !important; }
+
+/* ── Header ── */
+.app-theme-light .app-header {
+  border-color: #d8e1ec !important;
+  background: rgba(255,255,255,.98) !important;
+}
+.app-theme-light .app-header .text-white { color: #102033 !important; }
+.app-theme-light .app-header .text-slate-600 { color: #56677d !important; }
+.app-theme-light .app-header .text-slate-400 { color: #56677d !important; }
+.app-theme-light .app-header .text-slate-100 { color: #102033 !important; }
+.app-theme-light .app-header .bg-white\/15 { background-color: #d8e1ec !important; }
+.app-theme-light .app-header .bg-orange-500\/15 { background-color: #e6eef8 !important; }
+.app-theme-light .app-header .text-orange-300 { color: #073b82 !important; }
+.app-theme-light .app-header .ring-orange-400\/20 { --tw-ring-color: rgba(7,59,130,.15) !important; }
+.app-theme-light .app-header .hover\:text-orange-300:hover { color: #073b82 !important; }
+.app-theme-light .app-header .hover\:bg-white\/10:hover { background-color: #edf3fa !important; }
+.app-theme-light .app-header .text-slate-300 { color: #56677d !important; }
+.app-theme-light .app-header .notification-bell:hover { color: #073b82 !important; }
+
+/* ── Footer ── */
+.app-theme-light .app-footer {
+  border-color: #d8e1ec !important;
+  background: rgba(255,255,255,.98) !important;
+  color: #56677d !important;
+}
+
+/* ── Cards ── */
+.app-theme-light .card {
+  background: #fff;
+  border-color: #d8e1ec;
+  box-shadow: 0 1px 3px rgba(7,59,130,.06), 0 8px 28px -24px rgba(7,59,130,.12);
+  color: #102033;
+}
+.app-theme-light .card::before { background: none !important; } /* remove dark glass overlay */
+.app-theme-light .card:hover { border-color: #c4d1e0; box-shadow: 0 2px 6px rgba(7,59,130,.08), 0 12px 32px -24px rgba(7,59,130,.16); }
 .app-theme-light .lumora-panel {
   background:
     linear-gradient(145deg, #fff, #f8fafc) padding-box,
     linear-gradient(135deg, #d8e1ec, #eef2f7 52%, rgba(249,115,22,.42)) border-box !important;
 }
-.app-theme-light .page-title, .app-theme-light .section-title { color: #0b2442; }
+
+/* ── Typography ── */
+.app-theme-light .page-title, .app-theme-light .section-title { color: #0b2442 !important; }
 .app-theme-light .page-subtitle { color: #56677d; }
 .app-theme-light .label { color: #34495f; }
+/* Force text-white to dark for content areas (not buttons/badges) */
+.app-theme-light .text-white:not(button):not(.badge):not(.btn-primary):not(.bg-gradient-to-r):not([class*="bg-red"]):not([class*="bg-orange"]):not([class*="bg-gradient"]) { color: #102033 !important; }
+.app-theme-light h1.text-white, .app-theme-light h2.text-white, .app-theme-light h3.text-white { color: #0b2442 !important; }
+/* Orange accent text → warm blue in light mode */
+.app-theme-light .text-orange-400 { color: #d97706 !important; }
+.app-theme-light .text-orange-300 { color: #ea580c !important; }
+.app-theme-light .text-orange-400\2f 10,
+.app-theme-light .bg-orange-400\2f 10 { background-color: rgba(249,115,22,.08) !important; }
+.app-theme-light .bg-orange-400\2f \[\.07\] { background-color: rgba(249,115,22,.08) !important; }
+.app-theme-light .text-orange-300:not(.app-header .text-orange-300) { color: #ea580c !important; }
+.app-theme-light .ring-orange-300\2f 15 { --tw-ring-color: rgba(234,88,12,.15) !important; }
+.app-theme-light .ring-orange-300\2f 10 { --tw-ring-color: rgba(234,88,12,.12) !important; }
+
+/* ── Forms ── */
 .app-theme-light .field { border-color: #aebed0; background: #fff; color: #102033; }
 .app-theme-light .field::placeholder { color: #7b8da3; }
+.app-theme-light .field:focus { border-color: #0b58b5; box-shadow: 0 0 0 3px rgba(11,88,181,.12); background: #fff; }
 .app-theme-light .field:disabled { background: #edf1f5 !important; color: #64748b; }
 .app-theme-light select.field { color-scheme: light; }
+
+/* ── Buttons ── */
+.app-theme-light .btn-primary { background: #f97316; box-shadow: 0 4px 12px -6px rgba(249,115,22,.5); }
+.app-theme-light .btn-primary:hover { background: #ea580c; }
 .app-theme-light .btn-secondary { border-color: #9db0c6; background: #fff; color: #15314f; }
 .app-theme-light .btn-secondary:hover { border-color: #7188a2; background: #f3f6fa; }
 .app-theme-light .btn-danger { border-color: #e9a3a3; background: #fff6f6; color: #b42318; }
+
+/* ── Badges ── */
 .app-theme-light .badge-green { border-color: #b9e6c5; background: #dff5e5; color: #0d6b2b; }
 .app-theme-light .badge-orange { border-color: #f2d59c; background: #fff0cf; color: #9a5400; }
 .app-theme-light .badge-red { border-color: #f0b8b5; background: #ffe2e1; color: #b42318; }
 .app-theme-light .badge-blue { border-color: #bed5f3; background: #e3efff; color: #074c9e; }
+
+/* ── Background utility overrides ── */
 .app-theme-light .bg-white { background-color: #fff !important; }
 .app-theme-light .bg-slate-50 { background-color: #f8fafc !important; }
 .app-theme-light .bg-slate-100 { background-color: #f1f5f9 !important; }
@@ -235,6 +309,8 @@ a { color: inherit; text-decoration: none; }
 .app-theme-light .bg-green-50, .app-theme-light .bg-emerald-50 { background-color: #f0fdf4 !important; }
 .app-theme-light .bg-red-50 { background-color: #fef2f2 !important; }
 .app-theme-light .bg-amber-50, .app-theme-light .bg-orange-50 { background-color: #fff7ed !important; }
+
+/* ── Text utility overrides ── */
 .app-theme-light .text-\[\#0b2442\], .app-theme-light .text-\[\#071425\], .app-theme-light .text-slate-700, .app-theme-light .text-slate-800, .app-theme-light .text-slate-900 { color: #102033 !important; }
 .app-theme-light .text-\[\#073b82\] { color: #073b82 !important; }
 .app-theme-light .text-\[\#56677d\], .app-theme-light .text-\[\#35506f\], .app-theme-light .text-slate-500, .app-theme-light .text-slate-600 { color: #56677d !important; }
@@ -242,10 +318,34 @@ a { color: inherit; text-decoration: none; }
 .app-theme-light .text-green-800, .app-theme-light .text-green-700, .app-theme-light .text-emerald-700 { color: #0d6b2b !important; }
 .app-theme-light .text-red-800, .app-theme-light .text-red-700 { color: #b42318 !important; }
 .app-theme-light .text-amber-700, .app-theme-light .text-orange-700 { color: #9a5400 !important; }
+
+/* ── Border utility overrides ── */
 .app-theme-light .border-slate-100, .app-theme-light .border-slate-200, .app-theme-light .border-slate-300 { border-color: #d8e1ec !important; }
+.app-theme-light .border-white\/\[\.07\], .app-theme-light .border-white\/\[\.06\] { border-color: #d8e1ec !important; }
+.app-theme-light .divide-slate-200 > :not(:first-child) { border-color: #e2e8f0 !important; }
+.app-theme-light .divide-slate-100 > :not(:first-child) { border-color: #eef2f7 !important; }
+
+/* ── Grid pattern ── */
+.app-theme-light.lumora-grid {
+  background-image:
+    linear-gradient(rgba(7,59,130,.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(7,59,130,.03) 1px, transparent 1px) !important;
+}
+
+/* ── Kicker text ── */
+.app-theme-light .lumora-kicker { color: #d97706 !important; }
+
+/* ── Lumora orb (glow blobs) ── */
+.app-theme-light .lumora-orb { opacity: .3; }
+
+/* ── Table ── */
 .app-theme-light table thead { background: #f8fafc; color: #56677d; }
 .app-theme-light table tbody tr:hover { background: #f8fafc; }
 .app-theme-light option { background: #fff; color: #102033; }
+
+/* ── Switch ── */
+.app-theme-light .switch { background: #9bacbf; }
+.app-theme-light .switch[data-on="true"] { background: #f97316; }
 
 /* Authentication pages share the landing palette. */
 .auth-theme { color-scheme: dark; color: #e2e8f0; }
