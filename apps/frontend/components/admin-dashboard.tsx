@@ -71,7 +71,7 @@ export function AdminDashboard({ username }: { username: string }) {
       <div>
         <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-[#0b58b5]">Platform administration</p>
         <h1 className="mt-1 text-[26px] font-extrabold tracking-[-0.02em] text-[#0b2442]">Welcome back, {username}</h1>
-        <p className="mt-1 text-[13px] text-[#56677d]">Full operational visibility and control across LPG Guardian.</p>
+        <p className="mt-1 text-[13px] text-[#56677d]">Full operational visibility and control across Lumora.</p>
       </div>
       <Link href="/users" className="btn-primary"><Users size={15} /> Manage Users</Link>
     </header>
@@ -108,14 +108,13 @@ export function AdminDashboard({ username }: { username: string }) {
             {urgentReadings.length ? <AlertTriangle className="text-red-700" /> : <CheckCircle2 className="text-green-700" />}
             <div><h2 className="section-title">Safety status</h2><p className="mt-1 text-xs text-slate-600">{urgentReadings.length ? `${urgentReadings.length} warning readings require review.` : "No warnings in the latest telemetry."}</p></div>
           </div>
-          <Link href="/analytics" className="btn-secondary mt-5 w-full">Review Telemetry <ArrowRight size={14} /></Link>
+          <Link href="/cylinders" className="btn-secondary mt-5 w-full">Review Cylinders <ArrowRight size={14} /></Link>
         </article>
         <nav className="card p-5" aria-label="Administration shortcuts">
           <h2 className="section-title">Administration</h2>
           <div className="mt-3 divide-y divide-slate-100">
             <AdminLink href="/users" label="Users and roles" />
             <AdminLink href="/cylinders" label="Households, cylinders and devices" />
-            <AdminLink href="/analytics" label="Platform telemetry and analytics" />
             <AdminLink href="/refills" label="All refill requests" />
           </div>
         </nav>

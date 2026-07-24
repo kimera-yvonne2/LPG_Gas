@@ -57,7 +57,7 @@ export function WebPushSettings() {
         ? "Notifications are blocked in this browser's site settings."
         : status === "insecure"
           ? "Device notifications require HTTPS. Localhost is supported during development."
-        : "Receive safety and refill updates even when LPG Guardian is not open.";
+        : "Receive safety and refill updates even when Lumora is not open.";
 
   return (
     <section className="card mt-5 p-6">
@@ -69,7 +69,7 @@ export function WebPushSettings() {
           <div>
             <h2 className="section-title">Device notifications</h2>
             <p className="mt-1 max-w-xl text-xs leading-5 text-slate-600">{detail}</p>
-            <p className="mt-1 text-[10px] text-slate-500">On iPhone or iPad, add LPG Guardian to the Home Screen before enabling notifications.</p>
+            <p className="mt-1 text-[10px] text-slate-500">On iPhone or iPad, add Lumora to the Home Screen before enabling notifications.</p>
           </div>
         </div>
         {status === "enabled" ? (

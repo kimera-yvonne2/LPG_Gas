@@ -433,7 +433,7 @@ export default function CylindersPage() {
           className="grid gap-4"
         >
           <p className="text-sm text-slate-600">
-            Turn on the LPG Guardian, connect it to Wi-Fi, then enter the
+            Turn on the Lumora device, connect it to Wi-Fi, then enter the
             six-digit pairing code shown on its OLED.
           </p>
           {user?.role === "admin" && (

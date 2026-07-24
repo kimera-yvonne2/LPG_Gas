@@ -43,7 +43,7 @@ export function NotificationPermissionBanner() {
         <div>
           <p className="text-xs font-extrabold">Device notifications require a secure connection</p>
           <p className="mt-0.5 text-[11px] leading-4">
-            Open LPG Guardian over HTTPS. For development on this computer, use localhost rather than its network IP address.
+            Open Lumora over HTTPS. For development on this computer, use localhost rather than its network IP address.
           </p>
         </div>
       </section>
@@ -74,7 +74,7 @@ export function NotificationPermissionBanner() {
           <Bell size={18} aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-extrabold">Get important LPG Guardian alerts on this device</p>
+          <p className="text-xs font-extrabold">Get important Lumora alerts on this device</p>
           <p className="mt-0.5 text-[11px] leading-4 text-slate-600">
             Enable notifications for safety alerts, refill updates, and device events.
           </p>

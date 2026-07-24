@@ -32,7 +32,7 @@ export default function SettingsPage() {
 
   const removeAccount = async () => {
     const confirmed = window.confirm(
-      "Delete your LPG Guardian account? You will lose access immediately. This cannot be undone.",
+      "Delete your Lumora account? You will lose access immediately. This cannot be undone.",
     );
     if (!confirmed) return;
     setDeleting(true);
@@ -47,7 +47,7 @@ export default function SettingsPage() {
   };
 
   return <div className="mx-auto max-w-[760px]">
-    <PageHeading title="Account Settings" subtitle="Your profile data from the LPG Guardian backend." />
+    <PageHeading title="Account Settings" subtitle="Your profile data from the Lumora backend." />
     <section className="card p-6">
       <div className="mb-6"><h2 className="section-title">Profile</h2><p className="mt-1 text-xs text-slate-500">{user?.email}</p></div>
       <form onSubmit={submit} className="grid gap-5 sm:grid-cols-2"><div><label className="label">Name</label><input required className="field" value={form.username} onChange={event => setForm({ ...form, username: event.target.value })} /></div><div><label className="label">Phone number</label><input className="field" value={form.phone_number} onChange={event => setForm({ ...form, phone_number: event.target.value })} /></div><div><label className="label">Role</label><input disabled className="field capitalize disabled:bg-slate-100" value={user?.role || ""} /></div><div><label className="label">Account status</label><input disabled className="field disabled:bg-slate-100" value={user?.is_active ? "Active" : "Inactive"} /></div><div className="sm:col-span-2 flex items-center justify-between border-t border-slate-200 pt-5"><span className={`text-xs ${message.includes("updated") ? "text-green-700" : "text-red-700"}`}>{message}</span><button disabled={saving} className="btn-primary">{saving ? "Saving…" : "Save Profile"}</button></div></form>

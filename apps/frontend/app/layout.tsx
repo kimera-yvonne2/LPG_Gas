@@ -4,8 +4,8 @@ import { Providers } from "./providers";
 import { AppShell } from "@/components/app-shell";
 
 export const metadata: Metadata = {
-  title: "LPG Guardian",
-  description: "Smart LPG monitoring and safety platform",
+  title: "Lumora",
+  description: "Live LPG monitoring, safety alerts, and refill planning",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
