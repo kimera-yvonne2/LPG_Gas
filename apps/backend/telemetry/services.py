@@ -97,8 +97,10 @@ def create_reading(**data) -> Reading:
     reading = Reading.objects.create(**data)
 
     from alerts.services import process_reading_alerts
+    from refills.automation import process_automatic_refill
 
     process_reading_alerts(reading)
+    process_automatic_refill(reading)
 
     cylinder = reading.cylinder
     next_status = None

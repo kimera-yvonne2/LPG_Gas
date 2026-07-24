@@ -13,6 +13,15 @@ class Household(models.Model):
         on_delete=models.PROTECT,
         related_name="household",
     )
+    refill_provider = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="preferred_by_households",
+        limit_choices_to={"role": "technician", "is_active": True},
+        blank=True,
+        null=True,
+    )
+    automatic_refills_enabled = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -46,6 +55,7 @@ class Cylinder(models.Model):
     )
     installation_date = models.DateField()
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
+    automatic_refill_armed = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

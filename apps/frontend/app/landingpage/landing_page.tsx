@@ -163,6 +163,7 @@ export default function LumoraApp() {
           <div className="border-t border-white/[.07] bg-[#0b1628]/95 p-5 backdrop-blur-xl md:hidden">
             <div className="flex flex-col gap-2">
               {["How it works", "Features", "Dashboard"].map((item) => <a key={item} href={`#${item.toLowerCase().replaceAll(" ", "-")}`} onClick={() => setMenuOpen(false)} className="rounded-xl px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-white/5">{item}</a>)}
+              <Link to="/auth/login" onClick={() => setMenuOpen(false)} className="rounded-xl border border-white/10 px-4 py-3 text-center text-sm font-bold text-white">Log in</Link>
               <Link to="/auth/signup" className="mt-2 rounded-xl bg-orange-500 px-4 py-3 text-center text-sm font-bold text-white">Get started</Link>
             </div>
           </div>

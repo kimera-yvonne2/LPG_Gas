@@ -9,6 +9,7 @@ import { apiErrorMessage } from "@/lib/api-error";
 import { useAuth } from "@/lib/auth";
 import {
   ApiList,
+  Household,
   RefillProvider,
   RefillRequest,
   RefillStatus,
@@ -38,6 +39,9 @@ function HouseholdRefillsPage() {
     queryFn: async () => (await api.get<ApiList<RefillRequest>>("/refill-requests/")).data,
     enabled: isHousehold,
   });
+  const householdQuery = useQuery({ queryKey: ["my-household"], queryFn: async () => (await api.get<ApiList<Household>>("/households/")).data, enabled: isHousehold });
+  const household = rows(householdQuery.data)[0];
+  const switchProvider = useMutation({ mutationFn: async (providerId: number) => (await api.patch(`/households/${household?.id}/`, { refill_provider: providerId })).data, onSuccess: async () => { await client.invalidateQueries({ queryKey: ["my-household"] }); } });
 
   const providers = useMemo(() => rows(providersQuery.data), [providersQuery.data]);
   const requests = rows(requestsQuery.data);
@@ -86,6 +90,7 @@ function HouseholdRefillsPage() {
       title="Refill Providers"
       subtitle="Choose the provider branch you want to receive and process your refill request."
     />
+    <section className="card mb-5 p-5"><p className="lumora-kicker">Automatic refill provider</p><h2 className="section-title mt-2">{household?.refill_provider_name || "No provider selected"}</h2><p className="mt-2 text-xs text-slate-500">{household?.automatic_refills_enabled ? "Automatic requests are on." : "Automatic requests are currently turned off in Settings."}</p></section>
 
     <section className="card p-5">
       <div className="relative max-w-xl">
@@ -116,6 +121,9 @@ function HouseholdRefillsPage() {
                   <ProviderCard
                     key={provider.id}
                     provider={provider}
+                    selected={provider.id === household?.refill_provider}
+                    switching={switchProvider.isPending && switchProvider.variables === provider.id}
+                    onSwitch={() => switchProvider.mutate(provider.id)}
                     onRequest={() => {
                       createRequest.reset();
                       setSelectedProvider(provider);
@@ -352,7 +360,8 @@ function nextTechnicianAction(status: RefillStatus): { status: RefillStatus; lab
   return null;
 }
 
-function ProviderCard({ provider, onRequest }: { provider: RefillProvider; onRequest: () => void }) {
+function ProviderCard({ provider, selected, switching, onSwitch, onRequest }: { provider: RefillProvider; selected: boolean; switching: boolean; onSwitch: () => void; onRequest: () => void }) {
+  const logo = providerLogo(provider.name);
   const initials = provider.name
     .split(/\s+/)
     .filter(Boolean)
@@ -362,8 +371,8 @@ function ProviderCard({ provider, onRequest }: { provider: RefillProvider; onReq
 
   return <article className="card flex min-h-64 flex-col p-5">
     <div className="flex items-start gap-3">
-      <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[#e6eef8] text-sm font-extrabold text-[#073b82]">
-        {initials || <Building2 size={20} />}
+      <span className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl bg-white p-1 text-sm font-extrabold text-[#073b82] ring-1 ring-white/10">
+        {logo ? <img src={logo} alt={`${provider.name} logo`} className="h-full w-full object-contain" /> : initials || <Building2 size={20} />}
       </span>
       <div className="min-w-0">
         <h2 className="truncate text-sm font-extrabold text-[#073b82]">{provider.name}</h2>
@@ -378,10 +387,16 @@ function ProviderCard({ provider, onRequest }: { provider: RefillProvider; onReq
         <Phone className="shrink-0" size={15} /> {provider.phone_number || "No office phone provided"}
       </a>
     </div>
-    <button type="button" className="btn-primary mt-auto w-full" onClick={onRequest}>
-      <Send size={14} /> Request Refill
-    </button>
+    <div className="mt-auto grid gap-2"><button type="button" className="btn-secondary w-full" disabled={selected || switching} onClick={onSwitch}>{selected ? "Selected provider" : switching ? "Switching..." : "Switch to this provider"}</button><button type="button" className="btn-primary w-full" onClick={onRequest}><Send size={14} /> Request Refill</button></div>
   </article>;
+}
+
+function providerLogo(name: string): string | null {
+  const normalized = name.toLowerCase();
+  if (normalized.includes("shell")) return "/providers/shell-logo-1995.jpg";
+  if (normalized.includes("total")) return "/providers/logo-totalenergies-2021-1.jpg";
+  if (normalized.includes("oryx")) return "/providers/images.png";
+  return null;
 }
 
 function StatusBadge({ status }: { status: RefillStatus }) {

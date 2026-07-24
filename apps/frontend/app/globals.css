@@ -87,7 +87,7 @@ a { color: inherit; text-decoration: none; }
 .app-theme .card > * { position: relative; z-index: 1; }
 .app-theme .card:hover { border-color: rgba(255,255,255,.14); box-shadow: 0 22px 60px -38px rgba(0,0,0,.9); }
 .app-theme .page-title { color: #fff; font-size: clamp(25px, 3vw, 34px); font-weight: 900; letter-spacing: -.04em; }
-.app-theme .page-subtitle { margin-top: 6px; color: #64748b; font-size: 12px; line-height: 1.55; }
+.app-theme .page-subtitle { margin-top: 6px; color: #f8fafc; font-size: 12px; line-height: 1.55; }
 .app-theme .section-title { color: #f8fafc; font-size: 14px; font-weight: 850; letter-spacing: -.01em; }
 .app-theme .label,
 .auth-theme .label { color: #94a3b8; font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
@@ -134,7 +134,8 @@ a { color: inherit; text-decoration: none; }
 .app-theme .bg-red-50 { background-color: rgba(248,113,113,.08) !important; }
 .app-theme .bg-amber-50, .app-theme .bg-orange-50 { background-color: rgba(251,146,60,.08) !important; }
 .app-theme .text-\[\#0b2442\], .app-theme .text-\[\#073b82\], .app-theme .text-\[\#071425\], .app-theme .text-slate-700, .app-theme .text-slate-800, .app-theme .text-slate-900 { color: #f8fafc !important; }
-.app-theme .text-\[\#56677d\], .app-theme .text-\[\#35506f\], .app-theme .text-slate-500, .app-theme .text-slate-600 { color: #64748b !important; }
+.app-theme .text-slate-500 { color: #f8fafc !important; }
+.app-theme .text-\[\#56677d\], .app-theme .text-\[\#35506f\], .app-theme .text-slate-600 { color: #64748b !important; }
 .app-theme .text-blue-900, .app-theme .text-blue-700 { color: #7dd3fc !important; }
 .app-theme .text-green-800, .app-theme .text-green-700, .app-theme .text-emerald-700 { color: #6ee7b7 !important; }
 .app-theme .text-red-800, .app-theme .text-red-700 { color: #fca5a5 !important; }

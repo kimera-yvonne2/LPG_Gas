@@ -9,6 +9,24 @@ from alerts.services import create_notification
 from refills.models import RefillRequest
 
 
+def create_refill_request(*, household, assigned_technician, source: str) -> RefillRequest:
+    refill_request = RefillRequest.objects.create(
+        household=household,
+        assigned_technician=assigned_technician,
+        source=source,
+    )
+    create_notification(
+        recipient=assigned_technician,
+        category=Notification.Category.REFILL,
+        severity=Notification.Severity.INFO,
+        title="New refill request",
+        message=f"{household.owner.username} sent refill request #{refill_request.id}.",
+        target_url="/refills",
+        event_key=f"refill:{refill_request.id}:created",
+    )
+    return refill_request
+
+
 @transaction.atomic
 def transition_refill_request(*, refill_request_id: int, status: str, actor: User) -> RefillRequest:
     refill_request = (
