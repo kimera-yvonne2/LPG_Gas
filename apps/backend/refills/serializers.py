@@ -1,9 +1,8 @@
 from rest_framework import serializers
 
 from accounts.models import User
-from alerts.models import Notification
-from alerts.services import create_notification
 from refills.models import RefillRequest
+from refills.services import create_refill_request
 
 
 class RefillProviderSerializer(serializers.ModelSerializer):
@@ -88,19 +87,4 @@ class RefillRequestSerializer(serializers.ModelSerializer):
             validated_data["source"] = RefillRequest.Source.MANUAL
         elif "household" not in validated_data:
             raise serializers.ValidationError({"household": "This field is required."})
-        refill_request = RefillRequest.objects.create(**validated_data)
-        technician = refill_request.assigned_technician
-        if technician:
-            create_notification(
-                recipient=technician,
-                category=Notification.Category.REFILL,
-                severity=Notification.Severity.INFO,
-                title="New refill request",
-                message=(
-                    f"{refill_request.household.owner.username} sent refill request "
-                    f"#{refill_request.id}."
-                ),
-                target_url="/refills",
-                event_key=f"refill:{refill_request.id}:created",
-            )
-        return refill_request
+        return create_refill_request(**validated_data)

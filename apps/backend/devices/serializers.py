@@ -17,6 +17,7 @@ def validate_model(instance):
 class HouseholdSerializer(serializers.ModelSerializer):
     owner_name = serializers.CharField(source="owner.username", read_only=True)
     owner_email = serializers.EmailField(source="owner.email", read_only=True)
+    refill_provider_name = serializers.CharField(source="refill_provider.username", read_only=True)
 
     class Meta:
         model = Household
@@ -25,6 +26,9 @@ class HouseholdSerializer(serializers.ModelSerializer):
             "owner",
             "owner_name",
             "owner_email",
+            "refill_provider",
+            "refill_provider_name",
+            "automatic_refills_enabled",
             "created_at",
             "updated_at",
         )
@@ -36,15 +40,22 @@ class HouseholdSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Household owner must have the household role.")
         return owner
 
+    def validate_refill_provider(self, provider):
+        if provider and (provider.role != User.Role.TECHNICIAN or not provider.is_active):
+            raise serializers.ValidationError("The refill provider must be an active technician.")
+        return provider
+
     def validate(self, attrs):
         request = self.context["request"]
         if request.user.role == User.Role.HOUSEHOLD:
             attrs["owner"] = request.user
         elif not self.instance and "owner" not in attrs:
             raise serializers.ValidationError({"owner": "This field is required."})
-        candidate = Household(owner=attrs.get("owner", getattr(self.instance, "owner", None)))
+        # A PATCH may only contain a refill preference.  Do not run create-time
+        # model validation against a partially populated replacement object.
         if self.instance:
-            candidate.pk = self.instance.pk
+            return attrs
+        candidate = Household(owner=attrs.get("owner", getattr(self.instance, "owner", None)))
         validate_model(candidate)
         return attrs
 

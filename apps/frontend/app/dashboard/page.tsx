@@ -3,13 +3,13 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
-import { AlertTriangle, CheckCircle2, Clock3, Flame, RefreshCw, Scale, Wifi } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { AlertTriangle, CheckCircle2, Clock3, Flame, Mail, Phone, RefreshCw, Scale, Wifi } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { AdminDashboard } from "@/components/admin-dashboard";
 import { GasCylinderLevel } from "@/components/gas-cylinder-level";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { ApiList, Cylinder, DepletionEstimate, Reading, Sensor, rows } from "@/lib/domain";
+import { ApiList, Cylinder, DepletionEstimate, Household, Reading, RefillProvider, Sensor, rows } from "@/lib/domain";
 import { telemetryErrorMessage, toTelemetryPoints } from "@/lib/telemetry";
 
 const TelemetryChart = lazy(() => import("@/components/telemetry-chart"));
@@ -85,6 +85,8 @@ export default function DashboardPage() {
     staleTime: 5 * 60_000,
     refetchInterval: 5 * 60_000,
   });
+  const householdQuery = useQuery({ queryKey: ["my-household"], enabled: user?.role === "household", queryFn: async () => (await api.get<ApiList<Household>>("/households/")).data });
+  const providersQuery = useQuery({ queryKey: ["refill-providers"], enabled: user?.role === "household", queryFn: async () => (await api.get<ApiList<RefillProvider>>("/refill-providers/")).data });
 
   if (authLoading || !user) {
     return <div className="grid min-h-64 place-items-center text-sm font-bold text-[#073b82]">Loading your dashboard...</div>;
@@ -102,6 +104,8 @@ export default function DashboardPage() {
     latest?.weight !== null && latest?.weight !== undefined ? Number(latest.weight) : null;
   const points = toTelemetryPoints(history?.points ?? []);
   const sensor = overviewQuery.data?.sensors.find((item) => item.cylinder === cylinderId);
+  const household = rows(householdQuery.data)[0];
+  const provider = rows(providersQuery.data).find(item => item.id === household?.refill_provider);
   const isOnline = Boolean(sensor?.online_status && sensor?.is_active);
   const hasLeak = Boolean(latest?.gas_leak_detected);
   const estimate = predictionQuery.data?.estimate;
@@ -156,7 +160,7 @@ export default function DashboardPage() {
         <State text="Connect a sensor and cylinder to see your gas level here." />
       ) : (
         <>
-          <section className="grid gap-5 lg:grid-cols-[1.18fr_0.82fr]" aria-label="Current gas status">
+          <section className="grid gap-5 lg:grid-cols-3" aria-label="Current gas status">
             <article className="card lumora-panel lumora-rise min-h-[370px] p-5 [--rise-delay:.08s] sm:p-7">
               <span className="lumora-orb -bottom-32 -left-24 size-72 bg-orange-500/[.08]" />
               <div className="flex items-center justify-between gap-3">
@@ -203,6 +207,13 @@ export default function DashboardPage() {
               <p className="mt-5 text-[10px] leading-4 text-slate-500">
                 Updated {latest?.timestamp ? new Date(latest.timestamp).toLocaleString() : "when a new reading arrives"}.
               </p>
+            </article>
+
+            <article className="card lumora-rise p-6 [--rise-delay:.2s] sm:p-7">
+              <div className="flex items-start justify-between gap-4"><div><p className="lumora-kicker">Refills</p><h2 className="mt-3 text-lg font-extrabold text-white">{household?.refill_provider_name || "No provider selected"}</h2></div><span className={`badge ${household?.automatic_refills_enabled ? "badge-green" : "badge-orange"}`}>{household?.automatic_refills_enabled ? "Auto on" : "Auto off"}</span></div>
+              <p className="mt-5 text-sm leading-6 text-slate-500">{household?.automatic_refills_enabled ? "Automatic refill requests are on." : "Automatic refill requests are off."}</p>
+              {provider && <div className="mt-6 grid gap-4 border-t border-white/[.08] pt-5 text-xs"><a href={`mailto:${provider.email}`} className="flex items-center gap-2.5 text-slate-500 hover:text-orange-300"><Mail size={15} className="text-orange-300" />{provider.email}</a><a href={`tel:${provider.phone_number}`} className="flex items-center gap-2.5 text-slate-500 hover:text-orange-300"><Phone size={15} className="text-orange-300" />{provider.phone_number || "No office phone provided"}</a></div>}
+              <Link to="/refills" className="btn-secondary mt-7 w-full">Change provider</Link>
             </article>
           </section>
 
