@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  BarChart3, Bell, Gauge, LogOut, Menu, Settings, ShieldCheck, Truck,
+  Bell, Gauge, LogOut, Menu, Settings, ShieldCheck, Truck,
   UserRound, Users, X, ChevronRight, PanelLeftClose, PanelLeftOpen, Moon, Sun,
 } from "lucide-react";
 import Link from "next/link";
@@ -14,7 +14,6 @@ import { NotificationPermissionBanner } from "@/components/notification-permissi
 
 const navigation: { href: string; label: string; icon: typeof Gauge; roles: Role[] }[] = [
   { href: "/dashboard", label: "Dashboard", icon: Gauge, roles: ["admin", "household"] },
-  { href: "/analytics", label: "Analytics", icon: BarChart3, roles: ["admin", "household"] },
   { href: "/cylinders", label: "Cylinders & Devices", icon: ShieldCheck, roles: ["admin", "household"] },
   { href: "/refills", label: "Refill Providers", icon: Truck, roles: ["household"] },
   { href: "/refills", label: "Refill Operations", icon: Truck, roles: ["admin"] },

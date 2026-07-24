@@ -1,205 +1,266 @@
 "use client";
 
-import { useEffect } from "react";
+import dynamic from "next/dynamic";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Check, ChevronRight, Radio } from "lucide-react";
-import Link from "next/link";
+import axios from "axios";
+import { AlertTriangle, CheckCircle2, Clock3, RefreshCw, Scale, Wifi } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { AdminDashboard } from "@/components/admin-dashboard";
+import { GasCylinderLevel } from "@/components/gas-cylinder-level";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { ApiList, Cylinder, DepletionEstimate, Reading, Sensor, rows } from "@/lib/domain";
-import { AdminDashboard } from "@/components/admin-dashboard";
+import { telemetryErrorMessage, toTelemetryPoints } from "@/lib/telemetry";
+
+const TelemetryChart = dynamic(() => import("@/components/telemetry-chart"), {
+  ssr: false,
+  loading: () => <div className="grid h-[300px] place-items-center text-sm text-slate-500">Loading chart...</div>,
+});
+
+type History = { cylinder: number; sample_minutes: number; latest?: Reading; points: Reading[] };
 
 export default function DashboardPage() {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const [selectedCylinder, setSelectedCylinder] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!loading && user?.role === "technician") {
+    if (!authLoading && user?.role === "technician") {
       router.replace("/refills");
     }
-  }, [loading, router, user]);
+  }, [authLoading, router, user]);
 
-  const dashboardQuery = useQuery({
-    queryKey: ["household-dashboard"],
+  const overviewQuery = useQuery({
+    queryKey: ["household-dashboard-overview"],
     enabled: Boolean(user && user.role === "household"),
     queryFn: async () => {
-      const [cylindersResponse, sensorsResponse, readingsResponse] = await Promise.all([
-        api.get<ApiList<Cylinder>>("/cylinders/"),
-        api.get<ApiList<Sensor>>("/sensors/"),
-        api.get<ApiList<Reading>>("/readings/?ordering=-timestamp&page_size=1"),
+      const [cylindersResponse, sensorsResponse] = await Promise.all([
+        api.get<ApiList<Cylinder>>("/cylinders/?page_size=100&include_retired=true"),
+        api.get<ApiList<Sensor>>("/sensors/?page_size=100"),
       ]);
-
       return {
         cylinders: rows(cylindersResponse.data),
         sensors: rows(sensorsResponse.data),
-        readings: rows(readingsResponse.data),
       };
     },
-    staleTime: 30_000,
-    refetchInterval: 10_000,
+    staleTime: 15_000,
+    refetchInterval: 15_000,
   });
 
-  const dashboardCylinders = dashboardQuery.data?.cylinders ?? [];
-  const predictionCylinderId = dashboardQuery.data?.readings[0]?.cylinder ?? [...dashboardCylinders]
-    .sort((a, b) => new Date(b.latest_reading_at ?? 0).getTime() - new Date(a.latest_reading_at ?? 0).getTime())[0]?.id;
+  const cylinders = overviewQuery.data?.cylinders ?? [];
+  const activeCylinder = [...cylinders].sort(
+    (a, b) => new Date(b.latest_reading_at ?? 0).getTime() - new Date(a.latest_reading_at ?? 0).getTime(),
+  )[0];
+  const cylinderId = selectedCylinder ?? activeCylinder?.id;
+
+  const historyQuery = useQuery({
+    queryKey: ["reading-history", cylinderId],
+    queryFn: async () => (await api.get<History>(`/readings/history/?cylinder=${cylinderId}&sample_minutes=15`)).data,
+    enabled: Boolean(user?.role === "household" && cylinderId),
+    staleTime: 5 * 60_000,
+    refetchInterval: 5 * 60_000,
+    retry: (attempt, error) =>
+      !(axios.isAxiosError(error) && [401, 403].includes(error.response?.status ?? 0)) && attempt < 1,
+  });
+
+  const currentQuery = useQuery({
+    queryKey: ["latest-reading", cylinderId],
+    queryFn: async () =>
+      (await api.get<ApiList<Reading>>(`/readings/?cylinder=${cylinderId}&ordering=-timestamp&page_size=1`)).data,
+    enabled: Boolean(user?.role === "household" && cylinderId),
+    staleTime: 10_000,
+    refetchInterval: 15_000,
+  });
+
   const predictionQuery = useQuery({
-    queryKey: ["latest-depletion-estimate", predictionCylinderId],
-    queryFn: async () => (await api.get<{ cylinder: number; estimate: DepletionEstimate | null; status?: string; failure_reason?: string }>(`/depletion-estimates/latest/?cylinder=${predictionCylinderId}`)).data,
-    enabled: Boolean(predictionCylinderId),
+    queryKey: ["latest-depletion-estimate", cylinderId],
+    queryFn: async () =>
+      (
+        await api.get<{
+          cylinder: number;
+          estimate: DepletionEstimate | null;
+          failure_reason?: string;
+        }>(`/depletion-estimates/latest/?cylinder=${cylinderId}`)
+      ).data,
+    enabled: Boolean(user?.role === "household" && cylinderId),
     staleTime: 5 * 60_000,
     refetchInterval: 5 * 60_000,
   });
 
-  if (loading || !user) {
-    return (
-      <div className="grid min-h-64 place-items-center text-sm font-bold text-[#073b82]">
-        Loading your dashboard…
-      </div>
-    );
+  if (authLoading || !user) {
+    return <div className="grid min-h-64 place-items-center text-sm font-bold text-[#073b82]">Loading your dashboard...</div>;
   }
-
   if (user.role === "admin") return <AdminDashboard username={user.username} />;
-
   if (user.role !== "household") return null;
 
-  const cylinders = dashboardQuery.data?.cylinders ?? [];
-  const sensors = dashboardQuery.data?.sensors ?? [];
-  const latestReading = dashboardQuery.data?.readings[0];
-  const activeCylinders = cylinders.filter((cylinder) => cylinder.status === "active").length;
-  const onlineSensors = sensors.filter((sensor) => sensor.online_status && sensor.is_active).length;
-  const gasLevel = latestReading?.gas_percentage !== null && latestReading
-    ? Number(latestReading.gas_percentage)
-    : null;
-  const hasCriticalReading = Boolean(
-    latestReading &&
-      (latestReading.gas_leak_detected ||
-        (latestReading.gas_percentage !== null &&
-          Number(latestReading.gas_percentage) <= 5)),
-  );
+  const history = historyQuery.data;
+  const latest = rows(currentQuery.data)[0] ?? history?.latest;
+  const gasLevel =
+    latest?.gas_percentage !== null && latest?.gas_percentage !== undefined
+      ? Number(latest.gas_percentage)
+      : null;
+  const weight =
+    latest?.weight !== null && latest?.weight !== undefined ? Number(latest.weight) : null;
+  const points = toTelemetryPoints(history?.points ?? []);
+  const sensor = overviewQuery.data?.sensors.find((item) => item.cylinder === cylinderId);
+  const isOnline = Boolean(sensor?.online_status && sensor?.is_active);
+  const hasLeak = Boolean(latest?.gas_leak_detected);
+  const estimate = predictionQuery.data?.estimate;
+  const daysRemaining =
+    estimate?.status === "available" && estimate.estimated_days_remaining !== null
+      ? Number(estimate.estimated_days_remaining)
+      : null;
+  const loading = overviewQuery.isLoading || (Boolean(cylinderId) && (historyQuery.isLoading || currentQuery.isLoading));
+  const error = overviewQuery.error ?? historyQuery.error ?? currentQuery.error;
 
   return (
-    <div className="mx-auto max-w-[1180px]">
-      <header className="mb-7">
-        <h1 className="text-[26px] font-extrabold tracking-[-0.02em] text-[#0b2442]">
-          Welcome back, {user.username}!
-        </h1>
-        <p className="mt-1 text-[13px] text-[#56677d]">
-          Live LPG system status from the monitoring backend.
-        </p>
+    <div className="mx-auto max-w-[1120px]">
+      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-[26px] font-extrabold tracking-[-0.02em] text-[#0b2442]">
+            Hello, {user.username}
+          </h1>
+          <p className="mt-1 text-[12px] text-slate-500">Your gas level at a glance.</p>
+        </div>
+        {cylinders.length > 1 && cylinderId && (
+          <div className="w-full sm:w-auto">
+            <label className="label" htmlFor="dashboard-cylinder">Cylinder</label>
+            <select
+              id="dashboard-cylinder"
+              className="field min-w-[230px]"
+              value={cylinderId}
+              onChange={(event) => setSelectedCylinder(Number(event.target.value))}
+            >
+              {cylinders.map((cylinder) => (
+                <option key={cylinder.id} value={cylinder.id}>
+                  Cylinder #{cylinder.id}{cylinder.id === activeCylinder?.id ? " · current" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </header>
 
-      <section className="grid gap-5 md:grid-cols-3" aria-label="System overview">
-        <article className="card flex min-h-[280px] flex-col p-5">
-          <h2 className="text-[12px] font-extrabold uppercase tracking-wide text-slate-500">
-            Latest gas level
-          </h2>
-          <div className="grid flex-1 place-items-center py-6 text-center">
-            {dashboardQuery.isLoading ? (
-              <p className="text-[13px] text-slate-500">Loading latest reading…</p>
-            ) : Number.isFinite(gasLevel) ? (
-              <div>
-                <div className="text-[40px] font-black text-[#073b82]">{gasLevel!.toFixed(1)}%</div>
-                <p className="mt-2 text-[12px] text-slate-500">Latest cylinder reading</p>
+      {loading ? (
+        <State text="Loading your gas level..." />
+      ) : error ? (
+        <ErrorState
+          text={telemetryErrorMessage(error)}
+          onRetry={() => {
+            void overviewQuery.refetch();
+            void historyQuery.refetch();
+            void currentQuery.refetch();
+          }}
+        />
+      ) : !cylinderId ? (
+        <State text="Connect a sensor and cylinder to see your gas level here." />
+      ) : (
+        <>
+          <section className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]" aria-label="Current gas status">
+            <article className="card min-h-[350px] p-5 sm:p-7">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="section-title">Gas remaining</h2>
+                  <p className="mt-1 text-[11px] text-slate-500">Live cylinder reading</p>
+                </div>
+                <span className={`badge ${isOnline ? "badge-green" : "badge-orange"}`}>
+                  <Wifi size={12} className="mr-1" aria-hidden="true" />
+                  {isOnline ? "Live" : "Offline"}
+                </span>
               </div>
+              <div className="grid min-h-[270px] place-items-center py-3">
+                {Number.isFinite(gasLevel) ? (
+                  <GasCylinderLevel value={gasLevel!} />
+                ) : (
+                  <p className="text-sm text-slate-500">No gas reading received yet.</p>
+                )}
+              </div>
+            </article>
+
+            <article className="card p-5 sm:p-6">
+              <h2 className="section-title">At a glance</h2>
+              <div className="mt-4 divide-y divide-slate-200">
+                <StatusRow
+                  icon={<Scale size={18} />}
+                  label="Cylinder weight"
+                  value={Number.isFinite(weight) ? `${weight!.toFixed(1)} kg` : "Unavailable"}
+                />
+                <StatusRow
+                  icon={hasLeak ? <AlertTriangle size={18} /> : <CheckCircle2 size={18} />}
+                  label="Safety"
+                  value={hasLeak ? "Leak detected" : "No leak detected"}
+                  danger={hasLeak}
+                />
+                <StatusRow
+                  icon={<Clock3 size={18} />}
+                  label="Estimated time left"
+                  value={Number.isFinite(daysRemaining) ? `${daysRemaining!.toFixed(1)} days` : "Still learning"}
+                />
+              </div>
+              <p className="mt-5 text-[10px] leading-4 text-slate-500">
+                Updated {latest?.timestamp ? new Date(latest.timestamp).toLocaleString() : "when a new reading arrives"}.
+              </p>
+            </article>
+          </section>
+
+          <section className="card mt-5 p-5 sm:p-6" aria-labelledby="gas-history-title">
+            <div>
+              <h2 id="gas-history-title" className="section-title">Gas level history</h2>
+              <p id="gas-history-description" className="mt-1 text-[11px] text-slate-500">
+                See how your gas level changes over time.
+              </p>
+            </div>
+            {points.length ? (
+              <TelemetryChart points={points} />
             ) : (
-              <div>
-                <p className="text-[13px] text-slate-500">No cylinder readings received yet.</p>
-                <Link
-                  href="/cylinders"
-                  className="mt-4 inline-flex items-center gap-1 text-[12px] font-extrabold text-[#071425]"
-                >
-                  View cylinders <ChevronRight size={14} aria-hidden="true" />
-                </Link>
+              <div className="grid min-h-[220px] place-items-center text-sm text-slate-500">
+                History will appear after valid readings are received.
               </div>
             )}
-          </div>
-        </article>
-
-        <MetricCard
-          label="Cylinders"
-          value={activeCylinders}
-          footer={`${activeCylinders} active`}
-          loading={dashboardQuery.isLoading}
-        />
-        <MetricCard
-          label="Sensors online"
-          value={onlineSensors}
-          footer={`${sensors.length} registered`}
-          loading={dashboardQuery.isLoading}
-        />
-      </section>
-
-      {predictionCylinderId && (
-        <ForecastCard
-          estimate={predictionQuery.data?.estimate ?? null}
-          reason={predictionQuery.data?.failure_reason}
-          loading={predictionQuery.isLoading}
-        />
+          </section>
+        </>
       )}
-
-      <section className="card mt-5 p-5" aria-labelledby="safety-status-title">
-        <h2 id="safety-status-title" className="text-[17px] font-extrabold text-[#0b2442]">
-          Current safety status
-        </h2>
-        <div
-          className={`mt-4 flex min-h-[72px] items-center gap-3 rounded-md px-4 py-3 ${
-            hasCriticalReading ? "bg-red-50 text-red-800" : "bg-green-50 text-green-800"
-          }`}
-        >
-          <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 border-current">
-            <Check size={14} strokeWidth={3} aria-hidden="true" />
-          </span>
-          <div>
-            <p className="text-[13px] font-extrabold">
-              {hasCriticalReading ? "Critical reading detected" : "No critical readings"}
-            </p>
-            <p className="mt-0.5 text-[12px]">
-              {hasCriticalReading
-                ? "Review the latest alert and check your LPG system immediately."
-                : "Based on the latest telemetry received."}
-            </p>
-          </div>
-        </div>
-      </section>
     </div>
   );
 }
 
-function ForecastCard({ estimate, reason, loading }: { estimate: DepletionEstimate | null; reason?: string; loading: boolean }) {
-  const unavailableReason = reason ?? estimate?.failure_reason ?? "Learning your usage—waiting for the first reading.";
-  if (loading) return <section className="card mt-5 p-5 text-sm text-slate-500">Loading gas estimate…</section>;
-  if (!estimate || estimate.status !== "available") {
-    return <section className="card mt-5 p-5" aria-labelledby="forecast-title"><div className="flex items-center gap-2"><h2 id="forecast-title" className="text-[17px] font-extrabold text-[#0b2442]">Gas forecast</h2></div><p className="mt-3 text-sm text-slate-600">{unavailableReason}</p><p className="mt-1 text-xs text-slate-500">Forecasts update from stable 15-minute readings when enough usage data is available.</p></section>;
-  }
-  const confidence = Number(estimate.confidence_score ?? 0);
-  const confidenceLabel = confidence >= 0.7 ? "High" : confidence >= 0.4 ? "Moderate" : "Low";
-  const isBaseline = estimate.model_name === "household-cooking-baseline";
-  const date = (value: string | null) => value ? new Intl.DateTimeFormat(undefined, { weekday: "long", month: "short", day: "numeric" }).format(new Date(value)) : "Unavailable";
-  return <section className="card mt-5 p-5" aria-labelledby="forecast-title"><div className="flex items-center gap-2"><h2 id="forecast-title" className="text-[17px] font-extrabold text-[#0b2442]">Gas forecast</h2></div>{isBaseline && <p className="mt-3 rounded-md bg-blue-50 px-3 py-2 text-xs font-semibold text-[#073b82]">Initial cooking estimate — personalised from your measured usage after 5 hours.</p>}<div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><div><p className="text-xs font-bold uppercase text-slate-500">Estimated remaining</p><p className="mt-1 text-2xl font-black text-[#073b82]">{Number(estimate.estimated_days_remaining).toFixed(1)} days</p></div><div><p className="text-xs font-bold uppercase text-slate-500">Expected empty date</p><p className="mt-1 text-sm font-bold text-slate-700">{date(estimate.estimated_depletion_at)}</p></div><div><p className="text-xs font-bold uppercase text-slate-500">Likely window</p><p className="mt-1 text-sm font-bold text-slate-700">{date(estimate.lower_bound_at)} – {date(estimate.upper_bound_at)}</p></div><div><p className="text-xs font-bold uppercase text-slate-500">Confidence</p><p className="mt-1 text-sm font-bold text-slate-700">{confidenceLabel} · {estimate.input_reading_count} measured periods</p></div></div><p className="mt-4 text-xs text-slate-500">{isBaseline ? "Based on average household cooking use and the gas currently recorded; it will adapt as your usage is measured." : "Based on measured usage; this is a planning estimate, not a safety guarantee."}</p></section>;
-}
-
-function MetricCard({
+function StatusRow({
+  icon,
   label,
   value,
-  footer,
-  loading,
+  danger = false,
 }: {
+  icon: React.ReactNode;
   label: string;
-  value: number;
-  footer: string;
-  loading: boolean;
+  value: string;
+  danger?: boolean;
 }) {
   return (
-    <article className="card flex min-h-[280px] flex-col p-5">
-      <h2 className="text-[12px] font-extrabold uppercase tracking-wide text-slate-500">{label}</h2>
-      <div className="flex flex-1 items-center gap-4 text-[#073b82]">
-        <Radio size={23} aria-hidden="true" />
-        <strong className="text-[40px] font-black leading-none">{loading ? "—" : value}</strong>
+    <div className="flex items-center gap-3 py-5 first:pt-2">
+      <span className={`grid size-9 shrink-0 place-items-center rounded-xl ${danger ? "bg-red-50 text-red-700" : "bg-slate-100 text-slate-600"}`}>
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1 text-xs text-slate-500">{label}</span>
+      <strong className={`text-right text-sm ${danger ? "text-red-700" : "text-slate-700"}`}>{value}</strong>
+    </div>
+  );
+}
+
+function State({ text }: { text: string }) {
+  return <div className="card grid min-h-64 place-items-center p-6 text-center text-sm text-slate-500">{text}</div>;
+}
+
+function ErrorState({ text, onRetry }: { text: string; onRetry: () => void }) {
+  return (
+    <div className="card grid min-h-64 place-items-center gap-4 p-6 text-center">
+      <div>
+        <AlertTriangle className="mx-auto mb-3 text-orange-700" />
+        <p role="alert" className="text-sm text-slate-700">{text}</p>
       </div>
-      <p className="border-t border-slate-200 pt-3 text-[12px] text-[#35506f]">
-        {loading ? "Loading…" : footer}
-      </p>
-    </article>
+      <button type="button" onClick={onRetry} className="btn-primary">
+        <RefreshCw size={14} /> Try again
+      </button>
+    </div>
   );
 }
