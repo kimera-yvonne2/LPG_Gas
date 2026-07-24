@@ -338,6 +338,24 @@ def test_household_can_create_update_and_delete_sensor_for_own_cylinder(api_clie
     assert delete_response.data["result"] == "deleted"
 
 
+def test_sensor_list_derives_online_status_from_last_seen(api_client, cylinder):
+    sensor = Sensor.objects.create(
+        household=cylinder.household,
+        cylinder=cylinder,
+        esp32_id="ESP32-STALE",
+        mac_address="AA:BB:CC:DD:EE:09",
+        online_status=True,
+        last_seen=timezone.now() - timedelta(minutes=2),
+    )
+    authenticate(api_client, cylinder.household.owner)
+
+    response = api_client.get(reverse("v1:devices:sensor-list"))
+
+    assert response.status_code == 200
+    listed_sensor = next(item for item in response.data["results"] if item["id"] == sensor.id)
+    assert listed_sensor["online_status"] is False
+
+
 def test_household_cannot_connect_sensor_to_another_households_cylinder(
     api_client, cylinder, other_household_user
 ):

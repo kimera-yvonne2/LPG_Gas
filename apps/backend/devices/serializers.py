@@ -3,6 +3,7 @@ from rest_framework import serializers
 
 from accounts.models import User
 from devices.models import Cylinder, Household, Sensor
+from devices.presence import is_sensor_online
 from devices.services import create_cylinder, create_household, create_sensor, update_cylinder
 
 
@@ -163,6 +164,7 @@ class CylinderSerializer(serializers.ModelSerializer):
 
 class SensorSerializer(serializers.ModelSerializer):
     pairing_status = serializers.SerializerMethodField()
+    online_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Sensor
@@ -183,6 +185,8 @@ class SensorSerializer(serializers.ModelSerializer):
         )
         read_only_fields = (
             "id",
+            "online_status",
+            "last_seen",
             "is_active",
             "claimed_at",
             "pairing_status",
@@ -200,6 +204,9 @@ class SensorSerializer(serializers.ModelSerializer):
         if obj.cylinder_id is None:
             return "claimed"
         return "connected"
+
+    def get_online_status(self, obj):
+        return is_sensor_online(obj)
 
     def validate_household(self, household):
         user = self.context["request"].user

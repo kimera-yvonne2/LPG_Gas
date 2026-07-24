@@ -10,7 +10,7 @@ describe("GasCylinderLevel", () => {
 
   it("uses orange from 30 through 60 percent", () => {
     expect(gasLevelTone(30).label).toBe("Running low");
-    expect(gasLevelTone(60).label).toBe("Running low");
+    expect(gasLevelTone(40).label).toBe("Running low");
   });
 
   it("uses red below 30 percent", () => {

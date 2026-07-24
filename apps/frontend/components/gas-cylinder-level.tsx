@@ -9,7 +9,7 @@ type LevelTone = {
 };
 
 export function gasLevelTone(value: number): LevelTone {
-  if (value > 60) {
+  if (value > 40) {
     return { color: "#22c55e", label: "Good" };
   }
   if (value >= 30) {
@@ -85,13 +85,13 @@ export function GasCylinderLevel({ value }: { value: number }) {
       </svg>
 
       <div className="min-w-[104px]">
+        <p className="mt-2 text-[11px] text-slate-500">Gas remaining</p>
         <strong className="block text-[42px] font-black leading-none tracking-[-0.05em]" style={{ color: tone.color }}>
           {percentage.toFixed(1)}%
         </strong>
         <span className="mt-3 inline-flex rounded-full border border-current/20 px-3 py-1 text-[11px] font-extrabold" style={{ color: tone.color }}>
           {tone.label}
         </span>
-        <p className="mt-2 text-[11px] text-slate-500">Gas remaining</p>
       </div>
     </div>
   );

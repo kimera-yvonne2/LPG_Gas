@@ -17,7 +17,7 @@ const navigation: { href: string; label: string; icon: typeof Gauge; roles: Role
   { href: "/refills", label: "Refill Providers", icon: Truck, roles: ["household"] },
   { href: "/refills", label: "Refill Operations", icon: Truck, roles: ["admin"] },
   { href: "/refills", label: "Assigned Refills", icon: Truck, roles: ["technician"] },
-  { href: "/alerts", label: "Safety Alerts", icon: Bell, roles: ["household"] },
+  { href: "/alerts", label: "Notifications", icon: Bell, roles: ["household", "technician", "admin"] },
   { href: "/users", label: "User Management", icon: Users, roles: ["admin"] },
   { href: "/settings", label: "Settings", icon: Settings, roles: ["admin", "technician", "household"] },
 ];
@@ -86,7 +86,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
       <div className={`app-main ml-0 min-h-screen transition-[margin] duration-300 ${collapsed ? "lg:ml-20" : "lg:ml-[260px]"}`}>
         <header className="app-header sticky top-0 z-30 flex h-[64px] items-center gap-4 border-b border-white/[.07] bg-[#081321]/85 px-4 backdrop-blur-2xl sm:px-7">
-          <button className="md:hidden" onClick={() => setOpen(true)} aria-label="Open navigation"><Menu /></button>
+          <button className="lg:hidden" onClick={() => setOpen(true)} aria-label="Open navigation"><Menu /></button>
           <div><div className="text-[12px] font-extrabold text-white">{user.role === "technician" ? "Refill operations" : "Live monitoring"}</div><div className="mt-0.5 hidden text-[8px] font-bold uppercase tracking-[.14em] text-slate-600 sm:block">Lumora workspace</div></div>
           <div className="ml-auto flex items-center gap-3"><button onClick={toggleTheme} className="theme-toggle grid size-9 place-items-center rounded-lg text-slate-400 transition hover:bg-white/10 hover:text-orange-300" aria-label={`Switch to ${lightMode ? "dark" : "light"} mode`} title={`Switch to ${lightMode ? "dark" : "light"} mode`}>{lightMode ? <Moon size={18} /> : <Sun size={18} />}</button><Link to="/alerts" className="notification-bell relative text-white transition hover:text-orange-300" aria-label={`${unreadQuery.data?.count || 0} unread notifications`}>{Boolean(unreadQuery.data?.count) && <span className="absolute -right-2 -top-2 grid min-h-4 min-w-4 place-items-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white">{Math.min(unreadQuery.data?.count || 0, 99)}</span>}</Link><div className="h-7 w-px bg-white/15" /><div className="flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-full bg-orange-500/15 text-orange-300 ring-1 ring-orange-400/20"><UserRound size={16} /></span><div className="hidden text-right sm:block"><div className="text-[12px] font-bold text-slate-100">{user.username}</div><div className="text-[10px] text-slate-400">{roleLabel}</div></div></div></div>
         </header>

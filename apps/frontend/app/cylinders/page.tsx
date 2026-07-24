@@ -16,7 +16,6 @@ const emptyCylinder = () => ({
   capacity: "6.000",
   empty_weight: "",
   installation_date: today(),
-  status: "active",
 });
 const emptyReplacement = () => ({
   capacity: "6.000",
@@ -243,11 +242,6 @@ export default function CylindersPage() {
                       {cylinder.household_name}
                     </div>
                   </div>
-                  <span
-                    className={`badge ${cylinder.status === "active" ? "badge-green" : "badge-orange"}`}
-                  >
-                    {cylinder.status}
-                  </span>
                 </div>
                 <div className="mt-5 grid items-center gap-5 sm:grid-cols-[150px_1fr]">
                   <GasRing

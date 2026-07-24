@@ -63,7 +63,9 @@ export default function DashboardPage() {
   const currentQuery = useQuery({
     queryKey: ["latest-reading", cylinderId],
     queryFn: async () =>
-      (await api.get<ApiList<Reading>>(`/readings/?cylinder=${cylinderId}&ordering=-timestamp&page_size=1`)).data,
+      // A telemetry packet can be valid for safety data while its load-cell
+      // reading is unavailable. Keep showing the last usable gas measurement.
+      (await api.get<ApiList<Reading>>(`/readings/?cylinder=${cylinderId}&weight_min=0&ordering=-timestamp&page_size=1`)).data,
     enabled: Boolean(user?.role === "household" && cylinderId),
     staleTime: 10_000,
     refetchInterval: 15_000,
@@ -166,7 +168,7 @@ export default function DashboardPage() {
                 </div>
                 <span className={`badge ${isOnline ? "badge-green" : "badge-orange"}`}>
                   <Wifi size={12} className="mr-1" aria-hidden="true" />
-                  {isOnline ? "Live" : "Offline"}
+                  {isOnline ? "Device Online" : "Device Offline"}
                 </span>
               </div>
               <div className="grid min-h-[270px] place-items-center py-3">
@@ -180,7 +182,7 @@ export default function DashboardPage() {
 
             <article className="card lumora-rise p-5 [--rise-delay:.16s] sm:p-6">
               <div className="flex items-center justify-between"><div><p className="lumora-kicker">Today</p><h2 className="section-title mt-2">At a glance</h2></div><span className="text-[9px] font-bold uppercase tracking-[.12em] text-slate-600">Live data</span></div>
-              <div className="mt-4 divide-y divide-slate-200">
+              <div className="mt-4">
                 <StatusRow
                   icon={<Scale size={18} />}
                   label="Cylinder weight"
