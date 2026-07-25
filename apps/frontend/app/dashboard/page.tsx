@@ -121,10 +121,10 @@ export default function DashboardPage() {
       <header className="lumora-rise mb-7 flex flex-wrap items-end justify-between gap-5">
         <div>
          
-          <h1 className="mt-2 text-[30px] font-black tracking-[-0.045em] text-white sm:text-[34px]">
+          <h1 className="mt-2 text-[50px] font-black tracking-[-0.045em] text-white sm:text-[34px]">
             Good to see you, <span className="text-orange-400">{user.username}</span>
           </h1>
-          <p className="mt-2 text-[12px] text-slate-500">Everything important about your cylinder, without the searching.</p>
+          <p className="mt-2 text-[18px] text-slate-500">Everything important about your cylinder, without the searching.</p>
         </div>
         {cylinders.length > 1 && cylinderId && (
           <div className="w-full sm:w-auto">
@@ -167,7 +167,7 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-3">
                   <span className="grid size-10 place-items-center rounded-2xl bg-orange-400/10 text-orange-300 ring-1 ring-orange-300/15"><Flame size={18} /></span>
                   <div><h2 className="section-title">Gas remaining</h2>
-                  <p className="mt-1 text-[11px] text-slate-500">Live cylinder reading</p>
+                  <p className="mt-1 text-[15px] text-slate-500">Live cylinder reading</p>
                   </div>
                 </div>
                 <span className={`badge ${isOnline ? "badge-green" : "badge-orange"}`}>
@@ -221,7 +221,7 @@ export default function DashboardPage() {
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div><p className="lumora-kicker">Usage pattern</p>
               <h2 id="gas-history-title" className="section-title mt-2">Gas level history</h2>
-              <p id="gas-history-description" className="mt-1 text-[11px] text-slate-500">
+              <p id="gas-history-description" className="mt-1 text-[15px] text-slate-500">
                 See how your gas level changes over time.
               </p>
               </div>

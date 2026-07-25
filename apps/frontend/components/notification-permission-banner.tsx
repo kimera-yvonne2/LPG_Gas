@@ -74,8 +74,8 @@ export function NotificationPermissionBanner() {
           <Bell size={18} aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-extrabold">Get important Lumora alerts on this device</p>
-          <p className="mt-0.5 text-[11px] leading-4 text-slate-600">
+          <p className="text-xs sm:text-base font-extrabold">Get important Lumora alerts on this device</p>
+          <p className="mt-0.5 text-[13px] leading-4 text-slate-600">
             Enable notifications for safety alerts, refill updates, and device events.
           </p>
         </div>
